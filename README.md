@@ -1,8 +1,8 @@
 # Athena Query Builder
 
-[![npm version](https://img.shields.io/npm/v/athena-query-builder.svg)](https://www.npmjs.com/package/athena-query-builder)
-[![license](https://img.shields.io/npm/l/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
-[![Node.js](https://img.shields.io/node/v/athena-query-builder.svg)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/athena-query-builder/latest.svg)](https://www.npmjs.com/package/athena-query-builder)
+[![license](https://img.shields.io/github/license/gammarers-aws-sdk-extensions/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Phase 1 focuses on single-table `SELECT` generation with escaped string literals—no query execution, catalog access, or ORM.
 
@@ -18,9 +18,13 @@ Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Phase
 
 ## Installation
 
+**npm**
+
 ```bash
 npm install athena-query-builder
 ```
+
+**yarn**
 
 ```bash
 yarn add athena-query-builder

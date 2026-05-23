@@ -1,1 +1,115 @@
 # Athena Query Builder
+
+[![npm version](https://img.shields.io/npm/v/athena-query-builder.svg)](https://www.npmjs.com/package/athena-query-builder)
+[![license](https://img.shields.io/npm/l/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
+[![Node.js](https://img.shields.io/node/v/athena-query-builder.svg)](https://nodejs.org/)
+
+Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Phase 1 focuses on single-table `SELECT` generation with escaped string literals—no query execution, catalog access, or ORM.
+
+## Features
+
+- **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
+- **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereIn`, `orderBy`, `limit`
+- **Safe literals** — String values are escaped and embedded via `QuoteString` / `FormatScalar` (no bind parameters)
+- **`whereIn` empty array** — Renders `1=0` (always false) instead of invalid `IN ()`
+- **Identifier validation** — Unquoted names limited to alphanumeric, dot, and underscore (Phase 1)
+- **TypeScript** — Strict types for columns, sort direction, and scalar values
+- **Utilities** — `QuoteString`, `AssertIdentifier`, and `FormatScalar` classes under `utils/` for reuse
+
+## Installation
+
+```bash
+npm install athena-query-builder
+```
+
+```bash
+yarn add athena-query-builder
+```
+
+## Usage
+
+```typescript
+import { AthenaQueryBuilder } from 'athena-query-builder';
+
+const exampleKeys = ['ex-1', 'ex-2'];
+
+const sql = new AthenaQueryBuilder()
+  .select(['example_id', { column: 'example_value', as: 'v' }])
+  .from('example_table')
+  .whereIn('example_key', exampleKeys)
+  .whereEq('example_status', 'active')
+  .orderBy('example_id', 'asc')
+  .limit(1000)
+  .toSql();
+
+console.log(sql);
+```
+
+Example output:
+
+```sql
+SELECT example_id, example_value AS v
+FROM example_table
+WHERE example_key IN ('ex-1', 'ex-2') AND example_status = 'active'
+ORDER BY example_id ASC
+LIMIT 1000
+```
+
+### Immutable branching
+
+Reuse a base builder and branch without side effects:
+
+```typescript
+const base = new AthenaQueryBuilder()
+  .select(['example_id'])
+  .from('example_table');
+
+const forKeyA = base.whereIn('example_key', ['ex-a']);
+const forKeyB = base.whereIn('example_key', ['ex-b']);
+```
+
+### SQL formatting utilities
+
+```typescript
+import { QuoteString, AssertIdentifier, FormatScalar } from 'athena-query-builder';
+
+new QuoteString().execute("it's");              // "'it''s'"
+new AssertIdentifier().execute('example_table'); // 'example_table'
+new FormatScalar().execute(42);                  // '42'
+```
+
+## Options
+
+### `AthenaQueryBuilder`
+
+| Method | Description |
+|--------|-------------|
+| `select(columns)` | `SELECT` list. Each entry is a column name or `{ column, as? }`. |
+| `from(table)` | Single table name (validated identifier). |
+| `whereEq(column, value)` | `column = literal` or `column IS NULL` when `value` is `null`. |
+| `whereIn(column, values)` | `column IN (...)`; empty `values` → `1=0`. |
+| `orderBy(column, direction)` | Append one `ORDER BY` entry (`'asc'` \| `'desc'`). |
+| `orderBy(entries)` | Append multiple `{ column, direction }` entries. |
+| `limit(n)` | `LIMIT n` (`n` must be a non-negative integer). |
+| `toSql()` | Build the final SQL string (newline-separated clauses). |
+| `build()` | Alias for `toSql()`. |
+
+`toSql()` requires both `select()` and `from()` to have been called.
+
+### Scalar types (`WhereScalar`)
+
+`string` \| `number` \| `boolean` \| `null`
+
+### Out of scope (Phase 1)
+
+- `JOIN`, `WITH`, subquery `FROM`, `GROUP BY`, `HAVING`, window functions
+- `StartQueryExecution`, result polling, Glue catalog APIs
+- Environment variable reads or query-plan optimization
+
+## Requirements
+
+- **Node.js** `>= 20.0.0`
+
+## License
+
+This project is licensed under the Apache-2.0 License.

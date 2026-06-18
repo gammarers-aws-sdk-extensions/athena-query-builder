@@ -7,8 +7,10 @@
 import type { OrderByEntry, OrderDirection, SelectColumn, WhereScalar } from './types';
 import { AssertIdentifier, FormatScalar } from './utils';
 
+export { AthenaInsertBuilder } from './insert-builder';
 export { AssertIdentifier, FormatScalar, QuoteString } from './utils';
 export type {
+  InsertRow,
   OrderByEntry,
   OrderDirection,
   SelectColumn,

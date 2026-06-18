@@ -28,3 +28,13 @@ export type OrderByEntry = {
  * Scalar value accepted in WHERE equality and IN clauses.
  */
 export type WhereScalar = string | number | boolean | null;
+
+/**
+ * One row for INSERT: column name to scalar value.
+ *
+ * @example
+ * ```ts
+ * { example_id: 'ex-1', example_value: 'hello', deleted_at: null }
+ * ```
+ */
+export type InsertRow = Record<string, WhereScalar>;

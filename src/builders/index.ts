@@ -3,5 +3,4 @@
  *
  * @module builders
  */
-export { AthenaInsertBuilder } from './insert-builder';
-export { AthenaQueryBuilder } from './select-builder';
+export { AthenaQueryBuilder } from './athena-query-builder';

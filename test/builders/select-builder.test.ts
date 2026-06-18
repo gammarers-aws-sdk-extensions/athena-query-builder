@@ -167,4 +167,17 @@ FROM example_table`);
         .toSql(),
     ).toThrow('Invalid SQL identifier');
   });
+
+  test('rejects mixing SELECT with INSERT methods', () => {
+    const selectBuilder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => selectBuilder.into('example_table')).toThrow(
+      'not available for select',
+    );
+    expect(() => selectBuilder.values({ example_id: 'ex-1' })).toThrow(
+      'not available for select',
+    );
+  });
 });

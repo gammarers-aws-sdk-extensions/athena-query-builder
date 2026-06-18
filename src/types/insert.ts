@@ -4,7 +4,7 @@ import type { WhereScalar } from './scalar';
  * One row for `INSERT ... VALUES`: column name mapped to a scalar literal.
  *
  * Column order follows `Object.keys` insertion order of the first row passed to
- * {@link AthenaInsertBuilder.values}.
+ * {@link AthenaQueryBuilder.values}.
  *
  * @example
  * ```ts

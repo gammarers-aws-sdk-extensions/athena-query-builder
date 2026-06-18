@@ -7,10 +7,7 @@
  *
  * @module athena-query-builder
  */
-export {
-  AthenaInsertBuilder,
-  AthenaQueryBuilder,
-} from './builders';
+export { AthenaQueryBuilder } from './builders';
 export { AssertIdentifier, FormatScalar, QuoteString } from './utils';
 export type {
   InsertRow,

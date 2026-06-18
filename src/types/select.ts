@@ -7,7 +7,14 @@
  * { column: 'example_value', as: 'v' }
  * ```
  */
-export type SelectColumn = string | { column: string; as?: string };
+export type SelectColumn =
+  | string
+  | {
+    /** Source column identifier. */
+    column: string;
+    /** Optional alias for the SELECT list (`column AS alias`). */
+    as?: string;
+  };
 
 /**
  * Sort direction for ORDER BY clauses.
@@ -23,8 +30,3 @@ export type OrderByEntry = {
   /** Sort direction (`asc` or `desc`). */
   readonly direction: OrderDirection;
 };
-
-/**
- * Scalar value accepted in WHERE equality and IN clauses.
- */
-export type WhereScalar = string | number | boolean | null;

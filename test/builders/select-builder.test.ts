@@ -1,4 +1,4 @@
-import { AthenaQueryBuilder } from '../src';
+import { AthenaQueryBuilder } from '../../src';
 
 describe('AthenaQueryBuilder', () => {
   test('generates minimal SELECT FROM', () => {
@@ -166,5 +166,18 @@ FROM example_table`);
         .select(['example_id'])
         .toSql(),
     ).toThrow('Invalid SQL identifier');
+  });
+
+  test('rejects mixing SELECT with INSERT methods', () => {
+    const selectBuilder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => selectBuilder.into('example_table')).toThrow(
+      'not available for select',
+    );
+    expect(() => selectBuilder.values({ example_id: 'ex-1' })).toThrow(
+      'not available for select',
+    );
   });
 });

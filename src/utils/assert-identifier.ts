@@ -2,7 +2,10 @@
 const IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
 
 /**
- * Validates and returns an unquoted SQL identifier for Athena/Presto-style SQL.
+ * Validates unquoted SQL identifiers for Athena/Presto-style SQL (Phase 1).
+ *
+ * Allowed characters: alphanumeric, dot, and underscore. Names must start with
+ * a letter or underscore.
  */
 export class AssertIdentifier {
   /**

@@ -2,7 +2,7 @@ import { QuoteString } from './quote-string';
 import type { WhereScalar } from '../types';
 
 /**
- * Renders a scalar value as a SQL literal for use in WHERE clauses.
+ * Renders a scalar value as a SQL literal for use in WHERE, INSERT, UPDATE, and SET clauses.
  */
 export class FormatScalar {
   /** Delegates string formatting to {@link QuoteString}. */

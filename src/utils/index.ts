@@ -1,5 +1,5 @@
 /**
- * SQL literal and identifier formatting utilities used by {@link AthenaQueryBuilder}.
+ * SQL literal and identifier formatting utilities used by query builders.
  *
  * @module utils
  * @see {@link QuoteString}

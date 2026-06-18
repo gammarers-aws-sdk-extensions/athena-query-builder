@@ -1,4 +1,4 @@
-import { AthenaInsertBuilder } from '../src';
+import { AthenaInsertBuilder } from '../../src';
 
 describe('AthenaInsertBuilder', () => {
   test('generates minimal INSERT with one row', () => {

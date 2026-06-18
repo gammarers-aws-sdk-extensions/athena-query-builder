@@ -1,4 +1,4 @@
-import { AthenaQueryBuilder } from '../src';
+import { AthenaQueryBuilder } from '../../src';
 
 describe('AthenaQueryBuilder', () => {
   test('generates minimal SELECT FROM', () => {

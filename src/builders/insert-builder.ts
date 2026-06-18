@@ -1,11 +1,15 @@
-/**
- * @packageDocumentation
- * Fluent SQL builder for single-table Athena INSERT statements.
- */
-import type { InsertRow } from './types';
-import { AssertIdentifier, FormatScalar } from './utils';
+import type { InsertRow } from '../types';
+import { assertIdentifier, formatScalar } from './internal/instances';
 
-/** Internal immutable snapshot of insert builder state. */
+/**
+ * Fluent builder for single-table `INSERT` statements.
+ *
+ * @module builders/insert-builder
+ */
+
+/**
+ * Immutable internal state for {@link AthenaInsertBuilder}.
+ */
 interface InsertBuilderState {
   readonly table?: string;
   readonly rows: readonly InsertRow[];
@@ -15,12 +19,6 @@ interface InsertBuilderState {
 const EMPTY_INSERT_STATE: InsertBuilderState = {
   rows: [],
 };
-
-/** Shared {@link AssertIdentifier} instance for {@link AthenaInsertBuilder}. */
-const assertIdentifier = new AssertIdentifier();
-
-/** Shared {@link FormatScalar} instance for {@link AthenaInsertBuilder}. */
-const formatScalar = new FormatScalar();
 
 /**
  * Fluent, immutable query builder for single-table Athena INSERT statements.
@@ -41,6 +39,7 @@ export class AthenaInsertBuilder {
    *
    * @param rows - Non-empty list of rows to insert.
    * @returns Ordered column names for the INSERT column list.
+   * @throws {Error} When {@link rows} is empty.
    */
   private static resolveColumns(rows: readonly InsertRow[]): readonly string[] {
     const firstRow = rows[0];
@@ -56,6 +55,7 @@ export class AthenaInsertBuilder {
    * @param row - Row object.
    * @param columns - Column names in insertion order (from first row).
    * @returns SQL fragment such as `('a', 1, NULL)`.
+   * @throws {Error} When {@link row} is missing a column from {@link columns}.
    */
   private static formatValueTuple(
     row: InsertRow,
@@ -70,6 +70,7 @@ export class AthenaInsertBuilder {
     return `(${literals.join(', ')})`;
   }
 
+  /** Current builder state snapshot. */
   private readonly state: InsertBuilderState;
 
   /**
@@ -96,6 +97,7 @@ export class AthenaInsertBuilder {
    *
    * @param table - Table name validated as an identifier.
    * @returns A new builder instance.
+   * @throws {Error} When {@link table} is not a valid identifier.
    */
   public into(table: string): AthenaInsertBuilder {
     assertIdentifier.execute(table);
@@ -105,16 +107,24 @@ export class AthenaInsertBuilder {
   /**
    * Appends one or more rows to insert.
    *
-   * @param rowOrRows - A single row object or an array of row objects.
+   * @param row - A single row object.
    * @returns A new builder instance.
    * @throws {Error} When a row has no columns.
    */
   public values(row: InsertRow): AthenaInsertBuilder;
   /**
-   * @param rows - Multiple row objects with the same column keys.
+   * Appends multiple rows to insert.
+   *
+   * @param rows - Row objects that share the same column keys as the first row.
    * @returns A new builder instance.
+   * @throws {Error} When a row has no columns.
    */
   public values(rows: readonly InsertRow[]): AthenaInsertBuilder;
+  /**
+   * @param rowOrRows - A single row or an array of rows.
+   * @returns A new builder instance.
+   * @throws {Error} When a row has no columns.
+   */
   public values(
     rowOrRows: InsertRow | readonly InsertRow[],
   ): AthenaInsertBuilder {
@@ -133,7 +143,9 @@ export class AthenaInsertBuilder {
    * Builds the final Athena SQL string.
    *
    * @returns Complete INSERT statement.
-   * @throws {Error} When `into()` or `values()` has not been called.
+   * @returns Complete INSERT statement.
+   * @throws {Error} When `into()` or `values()` has not been called, when a row
+   *   is missing a column, or when a column name is not a valid identifier.
    */
   public toSql(): string {
     if (this.state.table === undefined) {

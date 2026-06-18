@@ -1,5 +1,7 @@
 /**
- * Formats a JavaScript string as a single-quoted SQL string literal with escaping.
+ * Formats a JavaScript string as a single-quoted SQL string literal.
+ *
+ * Embedded apostrophes are escaped by doubling (`'` → `''`).
  */
 export class QuoteString {
   /**

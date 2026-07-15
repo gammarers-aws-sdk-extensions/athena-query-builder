@@ -2,7 +2,7 @@ import { javascript, typescript, github } from 'projen';
 const project = new typescript.TypeScriptProject({
   authorName: 'yicr',
   authorEmail: 'yicr@users.noreply.github.com',
-  typescriptVersion: '5.9.x',
+  typescriptVersion: '6.0.x',
   defaultReleaseBranch: 'main',
   name: 'athena-query-builder',
   packageManager: javascript.NodePackageManager.YARN_CLASSIC,

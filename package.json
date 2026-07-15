@@ -46,7 +46,7 @@
     "projen": "^0.101.11",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "typescript": "5.9.x"
+    "typescript": "6.0.x"
   },
   "keywords": [
     "athena",

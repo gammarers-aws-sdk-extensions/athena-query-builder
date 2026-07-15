@@ -116,4 +116,16 @@ VALUES ('ex-b')`);
     );
   });
 
+  test('rejects mixing INSERT with UPDATE methods', () => {
+    const insertBuilder = new AthenaQueryBuilder()
+      .into('example_table')
+      .values({ example_id: 'ex-1' });
+
+    expect(() => insertBuilder.update('example_table')).toThrow(
+      'not available for insert',
+    );
+    expect(() => insertBuilder.set({ example_value: 'hello' })).toThrow(
+      'not available for insert',
+    );
+  });
 });

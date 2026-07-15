@@ -10,3 +10,4 @@ export type {
   SelectColumn,
 } from './select';
 export type { WhereScalar } from './scalar';
+export type { UpdateAssignments } from './update';

@@ -4,19 +4,20 @@
 [![license](https://img.shields.io/github/license/gammarers-aws-sdk-extensions/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build single-table `SELECT` and `INSERT` statements with escaped string literals—no query execution, catalog access, or ORM.
+Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build single-table `SELECT`, `INSERT`, and `UPDATE` statements with escaped string literals—no query execution, catalog access, or ORM.
 
 ## Features
 
 - **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
-- **Unified builder** — One `AthenaQueryBuilder` class for `SELECT` and `INSERT`
+- **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, and `UPDATE`
 - **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereIn`, `orderBy`, `limit`
 - **Single-table `INSERT`** — `into`, `values` (single or multiple rows)
-- **Statement isolation** — Mixing `SELECT` and `INSERT` methods on the same builder throws
+- **Single-table `UPDATE`** — `update`, `set`, `whereEq`, `whereIn`
+- **Statement isolation** — Mixing methods for different statement kinds on the same builder throws
 - **Safe literals** — String values are escaped and embedded via `QuoteString` / `FormatScalar` (no bind parameters)
 - **`whereIn` empty array** — Renders `1=0` (always false) instead of invalid `IN ()`
 - **Identifier validation** — Unquoted names limited to alphanumeric, dot, and underscore (Phase 1)
-- **TypeScript** — Strict types for columns, sort direction, insert rows, and scalar values
+- **TypeScript** — Strict types for columns, sort direction, insert rows, update assignments, and scalar values
 - **Utilities** — `QuoteString`, `AssertIdentifier`, and `FormatScalar` classes under `utils/` for reuse
 
 ## Installation
@@ -101,6 +102,45 @@ INSERT INTO example_table (example_id, example_value)
 VALUES ('ex-1', 'a'), ('ex-2', 'b')
 ```
 
+### UPDATE
+
+```typescript
+import { AthenaQueryBuilder } from 'athena-query-builder';
+
+const sql = new AthenaQueryBuilder()
+  .update('example_table')
+  .set({ example_value: 'hello', example_count: 1 })
+  .whereEq('example_id', 'ex-1')
+  .toSql();
+
+console.log(sql);
+```
+
+Example output:
+
+```sql
+UPDATE example_table
+SET example_value = 'hello', example_count = 1
+WHERE example_id = 'ex-1'
+```
+
+With `whereIn` and multiple `set()` calls:
+
+```typescript
+const sql = new AthenaQueryBuilder()
+  .update('example_table')
+  .set({ example_status: 'archived' })
+  .set({ deleted_at: null })
+  .whereIn('example_key', ['ex-1', 'ex-2'])
+  .toSql();
+```
+
+```sql
+UPDATE example_table
+SET example_status = 'archived', deleted_at = NULL
+WHERE example_key IN ('ex-1', 'ex-2')
+```
+
 ### Immutable branching
 
 Reuse a base builder and branch without side effects:
@@ -152,14 +192,25 @@ new FormatScalar().execute(42);                  // '42'
 
 `toSql()` for `INSERT` requires both `into()` and `values()` to have been called.
 
+#### UPDATE
+
+| Method | Description |
+|--------|-------------|
+| `update(table)` | Target table name (validated identifier). |
+| `set(assignments)` | `SET` column assignments (`UpdateAssignments`). Multiple calls merge; later values win for the same column. `null` → `column = NULL`. |
+| `whereEq(column, value)` | Same as SELECT (`column = literal` or `IS NULL`). |
+| `whereIn(column, values)` | Same as SELECT (`IN (...)`; empty → `1=0`). |
+
+`toSql()` for `UPDATE` requires both `update()` and `set()` to have been called. `WHERE` is optional.
+
 #### Shared
 
 | Method | Description |
 |--------|-------------|
-| `toSql()` | Build the final SQL string (`SELECT` or `INSERT`). |
+| `toSql()` | Build the final SQL string (`SELECT`, `INSERT`, or `UPDATE`). |
 | `build()` | Alias for `toSql()`. |
 
-`SELECT` and `INSERT` methods cannot be mixed on the same builder instance.
+Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE`) cannot be mixed on the same builder instance. `whereEq` / `whereIn` are shared by `SELECT` and `UPDATE`.
 
 ### Types
 
@@ -167,7 +218,7 @@ new FormatScalar().execute(42);                  // '42'
 
 `string` \| `number` \| `boolean` \| `null`
 
-Used in `WHERE`, `INSERT`, and future `UPDATE` / `SET` clauses.
+Used in `WHERE`, `INSERT`, `UPDATE` / `SET`, and `VALUES` clauses.
 
 #### `InsertRow`
 
@@ -175,9 +226,15 @@ Used in `WHERE`, `INSERT`, and future `UPDATE` / `SET` clauses.
 
 Column order follows `Object.keys` insertion order of the first row passed to `values()`.
 
+#### `UpdateAssignments`
+
+`Record<string, WhereScalar>`
+
+Column order follows `Object.keys` insertion order of the object passed to `set()` (merged across multiple calls).
+
 ### Out of scope (current phase)
 
-- `UPDATE`, `DELETE`
+- `DELETE`
 - `JOIN`, `WITH`, subquery `FROM`, `GROUP BY`, `HAVING`, window functions
 - `StartQueryExecution`, result polling, Glue catalog APIs
 - Environment variable reads or query-plan optimization

@@ -180,4 +180,17 @@ FROM example_table`);
       'not available for select',
     );
   });
+
+  test('rejects mixing SELECT with UPDATE methods', () => {
+    const selectBuilder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => selectBuilder.update('example_table')).toThrow(
+      'not available for select',
+    );
+    expect(() => selectBuilder.set({ example_value: 'hello' })).toThrow(
+      'not available for select',
+    );
+  });
 });

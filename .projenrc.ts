@@ -5,7 +5,7 @@ const project = new typescript.TypeScriptProject({
   typescriptVersion: '6.0.x',
   defaultReleaseBranch: 'main',
   name: 'athena-query-builder',
-  packageManager: javascript.NodePackageManager.YARN_CLASSIC,
+  packageManager: javascript.NodePackageManager.NPM,
   projenrcTs: true,
   repository: 'https://github.com/gammarers-aws-sdk-extensions/athena-query-builder.git',
   description: 'Fluent, immutable SQL builder for AWS Athena (Presto/Trino-style SQL). Phase 1 focuses on single-table SELECT generation with escaped string literals—no query execution, catalog access, or ORM.',

@@ -1,4 +1,5 @@
 import { AthenaQueryBuilder } from '../../src';
+import { renderUpdateSql } from '../../src/builders/internal/update-state';
 
 describe('AthenaQueryBuilder (UPDATE)', () => {
   test('should generate minimal UPDATE with SET', () => {
@@ -125,6 +126,16 @@ SET example_value = 'base'`);
     expect(() =>
       new AthenaQueryBuilder().update('example_table').set({}).toSql(),
     ).toThrow('at least one column');
+  });
+
+  test('should throw when renderUpdateSql receives empty assignments', () => {
+    expect(() =>
+      renderUpdateSql({
+        table: 'example_table',
+        assignments: {},
+        whereClauses: [],
+      }),
+    ).toThrow('at least one column assignment');
   });
 
   test('should reject invalid identifiers', () => {

@@ -1,4 +1,5 @@
 import { AthenaQueryBuilder } from '../../src';
+import { renderDeleteSql } from '../../src/builders/internal/delete-state';
 
 describe('AthenaQueryBuilder (DELETE)', () => {
   test('should generate minimal DELETE FROM', () => {
@@ -92,6 +93,10 @@ WHERE example_id = 'ex-b'`);
     expect(() => new AthenaQueryBuilder().delete('bad-table').toSql()).toThrow(
       'Invalid SQL identifier',
     );
+  });
+
+  test('should throw when renderDeleteSql is called without a table', () => {
+    expect(() => renderDeleteSql({ whereClauses: [] })).toThrow('delete()');
   });
 
   test('should reject mixing DELETE with SELECT methods', () => {

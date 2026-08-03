@@ -46,4 +46,13 @@ describe('FormatScalar', () => {
   test('should format null', () => {
     expect(formatScalar.execute(null)).toBe('NULL');
   });
+
+  test('should reject non-finite numbers', () => {
+    expect(() => formatScalar.execute(Number.NaN)).toThrow(
+      'Invalid numeric literal',
+    );
+    expect(() => formatScalar.execute(Number.POSITIVE_INFINITY)).toThrow(
+      'Invalid numeric literal',
+    );
+  });
 });

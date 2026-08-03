@@ -21,6 +21,16 @@ FROM example_table`);
 FROM example_table`);
   });
 
+  test('should select object column without alias as bare identifier', () => {
+    const sql = new AthenaQueryBuilder()
+      .select([{ column: 'example_value' }])
+      .from('example_table')
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_value
+FROM example_table`);
+  });
+
   test('should escape string literals in whereEq', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
@@ -156,6 +166,34 @@ FROM example_table`);
     );
     expect(() => new AthenaQueryBuilder().select(['example_id']).toSql()).toThrow(
       'from()',
+    );
+  });
+
+  test('should throw when no statement kind is configured', () => {
+    expect(() => new AthenaQueryBuilder().toSql()).toThrow(
+      'select(), into(), update(), or delete() is required before toSql()',
+    );
+  });
+
+  test('should throw when orderBy is given a column without direction', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    expect(() => {
+      // @ts-expect-error -- exercise runtime guard for missing direction
+      builder.orderBy('example_id');
+    }).toThrow('orderBy requires a direction');
+  });
+
+  test('should throw when limit is not a non-negative integer', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    expect(() => builder.limit(-1)).toThrow(
+      'limit must be a non-negative integer',
+    );
+    expect(() => builder.limit(1.5)).toThrow(
+      'limit must be a non-negative integer',
     );
   });
 

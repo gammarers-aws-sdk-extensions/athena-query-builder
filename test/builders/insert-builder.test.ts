@@ -94,6 +94,18 @@ VALUES ('ex-b')`);
     ).toThrow('at least one column');
   });
 
+  test('should throw when a later row is missing a column from the first row', () => {
+    expect(() =>
+      new AthenaQueryBuilder()
+        .into('example_table')
+        .values([
+          { example_id: 'ex-1', example_value: 'a' },
+          { example_id: 'ex-2' },
+        ])
+        .toSql(),
+    ).toThrow('Missing column "example_value"');
+  });
+
   test('should reject invalid identifiers', () => {
     expect(() =>
       new AthenaQueryBuilder()

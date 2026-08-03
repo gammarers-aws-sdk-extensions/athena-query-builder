@@ -1,13 +1,13 @@
 import { AthenaQueryBuilder } from '../../src';
 
 describe('AthenaQueryBuilder (DELETE)', () => {
-  test('generates minimal DELETE FROM', () => {
+  test('should generate minimal DELETE FROM', () => {
     const sql = new AthenaQueryBuilder().delete('example_table').toSql();
 
     expect(sql).toBe('DELETE FROM example_table');
   });
 
-  test('DELETE with whereEq', () => {
+  test('should generate DELETE with whereEq', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereEq('example_id', 'ex-1')
@@ -17,7 +17,7 @@ describe('AthenaQueryBuilder (DELETE)', () => {
 WHERE example_id = 'ex-1'`);
   });
 
-  test('escapes string literals in WHERE', () => {
+  test('should escape string literals in WHERE', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereEq('example_label', "it's")
@@ -27,7 +27,7 @@ WHERE example_id = 'ex-1'`);
 WHERE example_label = 'it''s'`);
   });
 
-  test('supports whereEq with null', () => {
+  test('should support whereEq with null', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereEq('deleted_at', null)
@@ -37,7 +37,7 @@ WHERE example_label = 'it''s'`);
 WHERE deleted_at IS NULL`);
   });
 
-  test('supports whereIn', () => {
+  test('should support whereIn', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereIn('example_key', ['ex-1', 'ex-2'])
@@ -47,7 +47,7 @@ WHERE deleted_at IS NULL`);
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
-  test('whereIn empty array yields 1=0', () => {
+  test('should yield 1=0 for empty whereIn array', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereIn('example_key', [])
@@ -57,7 +57,7 @@ WHERE example_key IN ('ex-1', 'ex-2')`);
 WHERE 1=0`);
   });
 
-  test('combines whereEq and whereIn', () => {
+  test('should combine whereEq and whereIn', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
       .whereIn('example_key', ['ex-1', 'ex-2'])
@@ -68,7 +68,7 @@ WHERE 1=0`);
 WHERE example_key IN ('ex-1', 'ex-2') AND example_status = 'active'`);
   });
 
-  test('builder is immutable — branches do not affect each other', () => {
+  test('should keep branches immutable without affecting each other', () => {
     const base = new AthenaQueryBuilder().delete('example_table');
 
     const withKey = base.whereEq('example_id', 'ex-a');
@@ -81,20 +81,20 @@ WHERE example_id = 'ex-b'`);
     expect(base.toSql()).toBe('DELETE FROM example_table');
   });
 
-  test('build() returns same SQL as toSql()', () => {
+  test('should return the same SQL from build() and toSql()', () => {
     const builder = new AthenaQueryBuilder()
       .delete('example_table')
       .whereEq('example_id', 'ex-1');
     expect(builder.build()).toBe(builder.toSql());
   });
 
-  test('rejects invalid identifiers', () => {
+  test('should reject invalid identifiers', () => {
     expect(() => new AthenaQueryBuilder().delete('bad-table').toSql()).toThrow(
       'Invalid SQL identifier',
     );
   });
 
-  test('rejects mixing DELETE with SELECT methods', () => {
+  test('should reject mixing DELETE with SELECT methods', () => {
     const deleteBuilder = new AthenaQueryBuilder().delete('example_table');
 
     expect(() => deleteBuilder.select(['example_id'])).toThrow(
@@ -105,7 +105,7 @@ WHERE example_id = 'ex-b'`);
     );
   });
 
-  test('rejects mixing DELETE with INSERT methods', () => {
+  test('should reject mixing DELETE with INSERT methods', () => {
     const deleteBuilder = new AthenaQueryBuilder().delete('example_table');
 
     expect(() => deleteBuilder.into('example_table')).toThrow(
@@ -116,7 +116,7 @@ WHERE example_id = 'ex-b'`);
     );
   });
 
-  test('rejects mixing DELETE with UPDATE methods', () => {
+  test('should reject mixing DELETE with UPDATE methods', () => {
     const deleteBuilder = new AthenaQueryBuilder().delete('example_table');
 
     expect(() => deleteBuilder.update('example_table')).toThrow(

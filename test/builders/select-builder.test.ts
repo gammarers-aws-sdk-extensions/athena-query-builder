@@ -1,7 +1,7 @@
 import { AthenaQueryBuilder } from '../../src';
 
 describe('AthenaQueryBuilder', () => {
-  test('generates minimal SELECT FROM', () => {
+  test('should generate minimal SELECT FROM', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -11,7 +11,7 @@ describe('AthenaQueryBuilder', () => {
 FROM example_table`);
   });
 
-  test('select with alias object', () => {
+  test('should select with alias object', () => {
     const sql = new AthenaQueryBuilder()
       .select([{ column: 'example_value', as: 'v' }])
       .from('example_table')
@@ -21,7 +21,7 @@ FROM example_table`);
 FROM example_table`);
   });
 
-  test('whereEq escapes string literals', () => {
+  test('should escape string literals in whereEq', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -33,7 +33,7 @@ FROM example_table
 WHERE example_name = 'O''Brien'`);
   });
 
-  test('whereEq supports number and null', () => {
+  test('should support number and null in whereEq', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -46,7 +46,7 @@ FROM example_table
 WHERE example_count = 3 AND deleted_at IS NULL`);
   });
 
-  test('whereIn with values', () => {
+  test('should generate whereIn with values', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -58,7 +58,7 @@ FROM example_table
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
-  test('whereIn empty array yields 1=0', () => {
+  test('should yield 1=0 for empty whereIn array', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -70,7 +70,7 @@ FROM example_table
 WHERE 1=0`);
   });
 
-  test('orderBy single column', () => {
+  test('should orderBy a single column', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -82,7 +82,7 @@ FROM example_table
 ORDER BY example_id ASC`);
   });
 
-  test('orderBy array overload', () => {
+  test('should orderBy via array overload', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_a', 'example_b'])
       .from('example_table')
@@ -97,7 +97,7 @@ FROM example_table
 ORDER BY example_a DESC, example_b ASC`);
   });
 
-  test('limit', () => {
+  test('should apply limit', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table')
@@ -109,7 +109,7 @@ FROM example_table
 LIMIT 10`);
   });
 
-  test('full chain: select, from, whereIn, orderBy, limit', () => {
+  test('should build full chain with select, from, whereIn, orderBy, and limit', () => {
     const sql = new AthenaQueryBuilder()
       .select(['example_id', 'example_value'])
       .from('example_table')
@@ -125,7 +125,7 @@ ORDER BY example_id ASC
 LIMIT 1000`);
   });
 
-  test('builder is immutable — branches do not affect each other', () => {
+  test('should keep branches immutable without affecting each other', () => {
     const base = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table');
@@ -143,14 +143,14 @@ LIMIT 5`);
 FROM example_table`);
   });
 
-  test('build() returns same SQL as toSql()', () => {
+  test('should return the same SQL from build() and toSql()', () => {
     const builder = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table');
     expect(builder.build()).toBe(builder.toSql());
   });
 
-  test('throws when select or from missing', () => {
+  test('should throw when select or from is missing', () => {
     expect(() => new AthenaQueryBuilder().from('example_table').toSql()).toThrow(
       'select()',
     );
@@ -159,7 +159,7 @@ FROM example_table`);
     );
   });
 
-  test('rejects invalid identifiers', () => {
+  test('should reject invalid identifiers', () => {
     expect(() =>
       new AthenaQueryBuilder()
         .from('bad-column')
@@ -168,7 +168,7 @@ FROM example_table`);
     ).toThrow('Invalid SQL identifier');
   });
 
-  test('rejects mixing SELECT with INSERT methods', () => {
+  test('should reject mixing SELECT with INSERT methods', () => {
     const selectBuilder = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table');
@@ -181,7 +181,7 @@ FROM example_table`);
     );
   });
 
-  test('rejects mixing SELECT with UPDATE methods', () => {
+  test('should reject mixing SELECT with UPDATE methods', () => {
     const selectBuilder = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table');
@@ -194,7 +194,7 @@ FROM example_table`);
     );
   });
 
-  test('rejects mixing SELECT with DELETE methods', () => {
+  test('should reject mixing SELECT with DELETE methods', () => {
     const selectBuilder = new AthenaQueryBuilder()
       .select(['example_id'])
       .from('example_table');

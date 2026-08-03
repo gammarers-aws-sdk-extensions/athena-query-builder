@@ -161,4 +161,14 @@ SET example_value = 'base'`);
       'not available for update',
     );
   });
+
+  test('rejects mixing UPDATE with DELETE methods', () => {
+    const updateBuilder = new AthenaQueryBuilder()
+      .update('example_table')
+      .set({ example_value: 'hello' });
+
+    expect(() => updateBuilder.delete('example_table')).toThrow(
+      'not available for update',
+    );
+  });
 });

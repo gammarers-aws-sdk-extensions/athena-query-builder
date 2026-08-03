@@ -193,4 +193,14 @@ FROM example_table`);
       'not available for select',
     );
   });
+
+  test('rejects mixing SELECT with DELETE methods', () => {
+    const selectBuilder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => selectBuilder.delete('example_table')).toThrow(
+      'not available for select',
+    );
+  });
 });

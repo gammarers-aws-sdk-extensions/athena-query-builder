@@ -128,4 +128,14 @@ VALUES ('ex-b')`);
       'not available for insert',
     );
   });
+
+  test('rejects mixing INSERT with DELETE methods', () => {
+    const insertBuilder = new AthenaQueryBuilder()
+      .into('example_table')
+      .values({ example_id: 'ex-1' });
+
+    expect(() => insertBuilder.delete('example_table')).toThrow(
+      'not available for insert',
+    );
+  });
 });

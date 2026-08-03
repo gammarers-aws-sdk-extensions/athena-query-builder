@@ -6,6 +6,11 @@ import type {
   UpdateAssignments,
   WhereScalar,
 } from '../types';
+import {
+  EMPTY_DELETE_STATE,
+  type DeleteBuilderState,
+  renderDeleteSql,
+} from './internal/delete-state';
 import { formatWhereEq, formatWhereIn } from './internal/format-where';
 import {
   EMPTY_INSERT_STATE,
@@ -25,7 +30,7 @@ import {
 } from './internal/update-state';
 
 /** Statement kinds supported by {@link AthenaQueryBuilder}. */
-type StatementKind = 'select' | 'insert' | 'update';
+type StatementKind = 'select' | 'insert' | 'update' | 'delete';
 
 /**
  * Immutable internal state for {@link AthenaQueryBuilder}.
@@ -35,6 +40,7 @@ interface BuilderState {
   readonly select: SelectBuilderState;
   readonly insert: InsertBuilderState;
   readonly update: UpdateBuilderState;
+  readonly delete: DeleteBuilderState;
 }
 
 /** Default empty builder state. */
@@ -42,14 +48,15 @@ const EMPTY_STATE: BuilderState = {
   select: EMPTY_SELECT_STATE,
   insert: EMPTY_INSERT_STATE,
   update: EMPTY_UPDATE_STATE,
+  delete: EMPTY_DELETE_STATE,
 };
 
 /**
  * Fluent, immutable query builder for single-table Athena SQL statements.
  *
- * Supports `SELECT`, `INSERT`, and `UPDATE` via one class. Each chain method
- * returns a new instance; mixing methods for different statement kinds on the
- * same builder throws.
+ * Supports `SELECT`, `INSERT`, `UPDATE`, and `DELETE` via one class. Each chain
+ * method returns a new instance; mixing methods for different statement kinds
+ * on the same builder throws.
  *
  * @example SELECT
  * ```ts
@@ -75,6 +82,14 @@ const EMPTY_STATE: BuilderState = {
  * const sql = new AthenaQueryBuilder()
  *   .update('example_table')
  *   .set({ example_value: 'hello' })
+ *   .whereEq('example_id', 'ex-1')
+ *   .toSql();
+ * ```
+ *
+ * @example DELETE
+ * ```ts
+ * const sql = new AthenaQueryBuilder()
+ *   .delete('example_table')
  *   .whereEq('example_id', 'ex-1')
  *   .toSql();
  * ```
@@ -130,7 +145,8 @@ export class AthenaQueryBuilder {
    *
    * @param columns - Column identifiers or `{ column, as? }` entries.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`.
    */
   public select(columns: readonly SelectColumn[]): AthenaQueryBuilder {
     this.assertKind('select', 'select');
@@ -145,8 +161,8 @@ export class AthenaQueryBuilder {
    *
    * @param table - Table name validated as an identifier.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`, or
-   *   when {@link table} is not a valid identifier.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`, or when {@link table} is not a valid identifier.
    */
   public from(table: string): AthenaQueryBuilder {
     this.assertKind('select', 'from');
@@ -160,7 +176,7 @@ export class AthenaQueryBuilder {
   /**
    * Appends `column = value` or `column IS NULL`.
    *
-   * Available for `SELECT` and `UPDATE` statements.
+   * Available for `SELECT`, `UPDATE`, and `DELETE` statements.
    *
    * @param column - Column name.
    * @param value - Scalar compared with `=` or `IS NULL`.
@@ -169,7 +185,7 @@ export class AthenaQueryBuilder {
    *   {@link column} is not a valid identifier.
    */
   public whereEq(column: string, value: WhereScalar): AthenaQueryBuilder {
-    this.assertKind(['select', 'update'], 'whereEq');
+    this.assertKind(['select', 'update', 'delete'], 'whereEq');
     const clause = formatWhereEq(column, value);
     if (this.state.kind === 'update') {
       return this.clone({
@@ -177,6 +193,15 @@ export class AthenaQueryBuilder {
         update: {
           ...this.state.update,
           whereClauses: [...this.state.update.whereClauses, clause],
+        },
+      });
+    }
+    if (this.state.kind === 'delete') {
+      return this.clone({
+        kind: 'delete',
+        delete: {
+          ...this.state.delete,
+          whereClauses: [...this.state.delete.whereClauses, clause],
         },
       });
     }
@@ -192,7 +217,7 @@ export class AthenaQueryBuilder {
   /**
    * Appends `column IN (...)`. An empty array produces `1=0`.
    *
-   * Available for `SELECT` and `UPDATE` statements.
+   * Available for `SELECT`, `UPDATE`, and `DELETE` statements.
    *
    * @param column - Column name.
    * @param values - List of scalars for the IN list.
@@ -204,7 +229,7 @@ export class AthenaQueryBuilder {
     column: string,
     values: readonly WhereScalar[],
   ): AthenaQueryBuilder {
-    this.assertKind(['select', 'update'], 'whereIn');
+    this.assertKind(['select', 'update', 'delete'], 'whereIn');
     const clause = formatWhereIn(column, values);
     if (this.state.kind === 'update') {
       return this.clone({
@@ -212,6 +237,15 @@ export class AthenaQueryBuilder {
         update: {
           ...this.state.update,
           whereClauses: [...this.state.update.whereClauses, clause],
+        },
+      });
+    }
+    if (this.state.kind === 'delete') {
+      return this.clone({
+        kind: 'delete',
+        delete: {
+          ...this.state.delete,
+          whereClauses: [...this.state.delete.whereClauses, clause],
         },
       });
     }
@@ -230,7 +264,8 @@ export class AthenaQueryBuilder {
    * @param column - Column name when using the two-argument form.
    * @param direction - Sort direction when using the two-argument form.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`.
    */
   public orderBy(column: string, direction: OrderDirection): AthenaQueryBuilder;
   /**
@@ -238,16 +273,17 @@ export class AthenaQueryBuilder {
    *
    * @param entries - Column and direction pairs.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`.
    */
   public orderBy(entries: readonly OrderByEntry[]): AthenaQueryBuilder;
   /**
    * @param columnOrEntries - Column name or list of sort entries.
    * @param direction - Required when the first argument is a column name.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`, when
-   *   the two-argument form is used without {@link direction}, or when a
-   *   column name is not a valid identifier.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`, when the two-argument form is used without {@link direction},
+   *   or when a column name is not a valid identifier.
    */
   public orderBy(
     columnOrEntries: string | readonly OrderByEntry[],
@@ -290,8 +326,8 @@ export class AthenaQueryBuilder {
    *
    * @param n - Non-negative integer row limit.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `INSERT` or `UPDATE`, or
-   *   when {@link n} is not a non-negative integer.
+   * @throws {Error} When the builder is configured for `INSERT`, `UPDATE`, or
+   *   `DELETE`, or when {@link n} is not a non-negative integer.
    */
   public limit(n: number): AthenaQueryBuilder {
     this.assertKind('select', 'limit');
@@ -309,8 +345,8 @@ export class AthenaQueryBuilder {
    *
    * @param table - Table name validated as an identifier.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `UPDATE`, or
-   *   when {@link table} is not a valid identifier.
+   * @throws {Error} When the builder is configured for `SELECT`, `UPDATE`, or
+   *   `DELETE`, or when {@link table} is not a valid identifier.
    */
   public into(table: string): AthenaQueryBuilder {
     this.assertKind('insert', 'into');
@@ -326,8 +362,8 @@ export class AthenaQueryBuilder {
    *
    * @param row - A single row object.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `UPDATE`, or
-   *   when a row has no columns.
+   * @throws {Error} When the builder is configured for `SELECT`, `UPDATE`, or
+   *   `DELETE`, or when a row has no columns.
    */
   public values(row: InsertRow): AthenaQueryBuilder;
   /**
@@ -335,15 +371,15 @@ export class AthenaQueryBuilder {
    *
    * @param rows - Row objects that share the same column keys as the first row.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `UPDATE`, or
-   *   when a row has no columns.
+   * @throws {Error} When the builder is configured for `SELECT`, `UPDATE`, or
+   *   `DELETE`, or when a row has no columns.
    */
   public values(rows: readonly InsertRow[]): AthenaQueryBuilder;
   /**
    * @param rowOrRows - A single row or an array of rows.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `UPDATE`, or
-   *   when a row has no columns.
+   * @throws {Error} When the builder is configured for `SELECT`, `UPDATE`, or
+   *   `DELETE`, or when a row has no columns.
    */
   public values(
     rowOrRows: InsertRow | readonly InsertRow[],
@@ -369,8 +405,8 @@ export class AthenaQueryBuilder {
    *
    * @param table - Table name validated as an identifier.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `INSERT`, or
-   *   when {@link table} is not a valid identifier.
+   * @throws {Error} When the builder is configured for `SELECT`, `INSERT`, or
+   *   `DELETE`, or when {@link table} is not a valid identifier.
    */
   public update(table: string): AthenaQueryBuilder {
     this.assertKind('update', 'update');
@@ -389,8 +425,8 @@ export class AthenaQueryBuilder {
    *
    * @param assignments - Column name to scalar literal map.
    * @returns A new builder instance.
-   * @throws {Error} When the builder is configured for `SELECT` or `INSERT`, or
-   *   when {@link assignments} has no columns.
+   * @throws {Error} When the builder is configured for `SELECT`, `INSERT`, or
+   *   `DELETE`, or when {@link assignments} has no columns.
    */
   public set(assignments: UpdateAssignments): AthenaQueryBuilder {
     this.assertKind('update', 'set');
@@ -410,9 +446,26 @@ export class AthenaQueryBuilder {
   }
 
   /**
+   * Sets the target table for DELETE.
+   *
+   * @param table - Table name validated as an identifier.
+   * @returns A new builder instance.
+   * @throws {Error} When the builder is configured for `SELECT`, `INSERT`, or
+   *   `UPDATE`, or when {@link table} is not a valid identifier.
+   */
+  public delete(table: string): AthenaQueryBuilder {
+    this.assertKind('delete', 'delete');
+    assertIdentifier.execute(table);
+    return this.clone({
+      kind: 'delete',
+      delete: { ...this.state.delete, table },
+    });
+  }
+
+  /**
    * Builds the final Athena SQL string.
    *
-   * @returns Complete `SELECT`, `INSERT`, or `UPDATE` statement.
+   * @returns Complete `SELECT`, `INSERT`, `UPDATE`, or `DELETE` statement.
    * @throws {Error} When required chain methods were not called, when statement
    *   kinds are mixed, or when identifiers are invalid.
    */
@@ -423,11 +476,14 @@ export class AthenaQueryBuilder {
     if (this.state.kind === 'update') {
       return renderUpdateSql(this.state.update);
     }
+    if (this.state.kind === 'delete') {
+      return renderDeleteSql(this.state.delete);
+    }
     if (this.state.kind === 'select') {
       return renderSelectSql(this.state.select);
     }
     throw new Error(
-      'select(), into(), or update() is required before toSql()',
+      'select(), into(), update(), or delete() is required before toSql()',
     );
   }
 

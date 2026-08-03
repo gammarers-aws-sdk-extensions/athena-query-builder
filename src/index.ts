@@ -2,8 +2,9 @@
  * @packageDocumentation
  * Fluent SQL builders for AWS Athena (Presto/Trino-style SQL).
  *
- * Provides immutable builders for `SELECT`, `INSERT`, and `UPDATE` statements, plus
- * low-level utilities for safe identifier validation and scalar literal formatting.
+ * Provides immutable builders for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
+ * statements, plus low-level utilities for safe identifier validation and
+ * scalar literal formatting.
  *
  * @module athena-query-builder
  */

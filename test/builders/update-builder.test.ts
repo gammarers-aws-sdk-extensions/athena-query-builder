@@ -1,7 +1,8 @@
 import { AthenaQueryBuilder } from '../../src';
+import { renderUpdateSql } from '../../src/builders/internal/update-state';
 
 describe('AthenaQueryBuilder (UPDATE)', () => {
-  test('generates minimal UPDATE with SET', () => {
+  test('should generate minimal UPDATE with SET', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'hello' })
@@ -11,7 +12,7 @@ describe('AthenaQueryBuilder (UPDATE)', () => {
 SET example_value = 'hello'`);
   });
 
-  test('UPDATE with SET and whereEq', () => {
+  test('should generate UPDATE with SET and whereEq', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'hello' })
@@ -23,7 +24,7 @@ SET example_value = 'hello'
 WHERE example_id = 'ex-1'`);
   });
 
-  test('escapes string literals in SET and WHERE', () => {
+  test('should escape string literals in SET and WHERE', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_name: "O'Brien" })
@@ -35,7 +36,7 @@ SET example_name = 'O''Brien'
 WHERE example_label = 'it''s'`);
   });
 
-  test('supports number, boolean, and null scalars in SET', () => {
+  test('should support number, boolean, and null scalars in SET', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({
@@ -51,7 +52,7 @@ SET example_count = 3, example_active = TRUE, deleted_at = NULL
 WHERE example_id = 'ex-1'`);
   });
 
-  test('supports whereIn', () => {
+  test('should support whereIn', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_status: 'archived' })
@@ -63,7 +64,7 @@ SET example_status = 'archived'
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
-  test('whereIn empty array yields 1=0', () => {
+  test('should yield 1=0 for empty whereIn array', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_status: 'archived' })
@@ -75,7 +76,7 @@ SET example_status = 'archived'
 WHERE 1=0`);
   });
 
-  test('merges assignments across multiple set() calls', () => {
+  test('should merge assignments across multiple set() calls', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'a' })
@@ -88,7 +89,7 @@ SET example_value = 'a', example_count = 1
 WHERE example_id = 'ex-1'`);
   });
 
-  test('builder is immutable — branches do not affect each other', () => {
+  test('should keep branches immutable without affecting each other', () => {
     const base = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'base' });
@@ -105,14 +106,14 @@ SET example_value = 'base', example_count = 2`);
 SET example_value = 'base'`);
   });
 
-  test('build() returns same SQL as toSql()', () => {
+  test('should return the same SQL from build() and toSql()', () => {
     const builder = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'hello' });
     expect(builder.build()).toBe(builder.toSql());
   });
 
-  test('throws when update or set missing', () => {
+  test('should throw when update or set is missing', () => {
     expect(() =>
       new AthenaQueryBuilder().set({ example_value: 'hello' }).toSql(),
     ).toThrow('update()');
@@ -121,13 +122,23 @@ SET example_value = 'base'`);
     ).toThrow('set()');
   });
 
-  test('throws when set has no columns', () => {
+  test('should throw when set has no columns', () => {
     expect(() =>
       new AthenaQueryBuilder().update('example_table').set({}).toSql(),
     ).toThrow('at least one column');
   });
 
-  test('rejects invalid identifiers', () => {
+  test('should throw when renderUpdateSql receives empty assignments', () => {
+    expect(() =>
+      renderUpdateSql({
+        table: 'example_table',
+        assignments: {},
+        whereClauses: [],
+      }),
+    ).toThrow('at least one column assignment');
+  });
+
+  test('should reject invalid identifiers', () => {
     expect(() =>
       new AthenaQueryBuilder()
         .update('bad-table')
@@ -136,7 +147,7 @@ SET example_value = 'base'`);
     ).toThrow('Invalid SQL identifier');
   });
 
-  test('rejects mixing UPDATE with SELECT methods', () => {
+  test('should reject mixing UPDATE with SELECT methods', () => {
     const updateBuilder = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'hello' });
@@ -149,7 +160,7 @@ SET example_value = 'base'`);
     );
   });
 
-  test('rejects mixing UPDATE with INSERT methods', () => {
+  test('should reject mixing UPDATE with INSERT methods', () => {
     const updateBuilder = new AthenaQueryBuilder()
       .update('example_table')
       .set({ example_value: 'hello' });
@@ -158,6 +169,16 @@ SET example_value = 'base'`);
       'not available for update',
     );
     expect(() => updateBuilder.values({ example_id: 'ex-1' })).toThrow(
+      'not available for update',
+    );
+  });
+
+  test('should reject mixing UPDATE with DELETE methods', () => {
+    const updateBuilder = new AthenaQueryBuilder()
+      .update('example_table')
+      .set({ example_value: 'hello' });
+
+    expect(() => updateBuilder.delete('example_table')).toThrow(
       'not available for update',
     );
   });

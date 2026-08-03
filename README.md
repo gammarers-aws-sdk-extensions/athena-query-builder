@@ -4,19 +4,20 @@
 [![license](https://img.shields.io/github/license/gammarers-aws-sdk-extensions/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build single-table `SELECT`, `INSERT`, and `UPDATE` statements with escaped string literals—no query execution, catalog access, or ORM.
+Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build single-table `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements with escaped string literals—no query execution, catalog access, or ORM.
 
 ## Features
 
 - **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
-- **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, and `UPDATE`
+- **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
 - **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereIn`, `orderBy`, `limit`
 - **Single-table `INSERT`** — `into`, `values` (single or multiple rows)
 - **Single-table `UPDATE`** — `update`, `set`, `whereEq`, `whereIn`
+- **Single-table `DELETE`** — `delete`, `whereEq`, `whereIn`
 - **Statement isolation** — Mixing methods for different statement kinds on the same builder throws
 - **Safe literals** — String values are escaped and embedded via `QuoteString` / `FormatScalar` (no bind parameters)
 - **`whereIn` empty array** — Renders `1=0` (always false) instead of invalid `IN ()`
-- **Identifier validation** — Unquoted names limited to alphanumeric, dot, and underscore (Phase 1)
+- **Identifier validation** — Unquoted names limited to alphanumeric, dot, and underscore
 - **TypeScript** — Strict types for columns, sort direction, insert rows, update assignments, and scalar values
 - **Utilities** — `QuoteString`, `AssertIdentifier`, and `FormatScalar` classes under `utils/` for reuse
 
@@ -141,6 +142,40 @@ SET example_status = 'archived', deleted_at = NULL
 WHERE example_key IN ('ex-1', 'ex-2')
 ```
 
+### DELETE
+
+```typescript
+import { AthenaQueryBuilder } from 'athena-query-builder';
+
+const sql = new AthenaQueryBuilder()
+  .delete('example_table')
+  .whereEq('example_id', 'ex-1')
+  .toSql();
+
+console.log(sql);
+```
+
+Example output:
+
+```sql
+DELETE FROM example_table
+WHERE example_id = 'ex-1'
+```
+
+With `whereIn`:
+
+```typescript
+const sql = new AthenaQueryBuilder()
+  .delete('example_table')
+  .whereIn('example_key', ['ex-1', 'ex-2'])
+  .toSql();
+```
+
+```sql
+DELETE FROM example_table
+WHERE example_key IN ('ex-1', 'ex-2')
+```
+
 ### Immutable branching
 
 Reuse a base builder and branch without side effects:
@@ -203,14 +238,24 @@ new FormatScalar().execute(42);                  // '42'
 
 `toSql()` for `UPDATE` requires both `update()` and `set()` to have been called. `WHERE` is optional.
 
+#### DELETE
+
+| Method | Description |
+|--------|-------------|
+| `delete(table)` | Target table name (validated identifier). |
+| `whereEq(column, value)` | Same as SELECT (`column = literal` or `IS NULL`). |
+| `whereIn(column, values)` | Same as SELECT (`IN (...)`; empty → `1=0`). |
+
+`toSql()` for `DELETE` requires `delete()` to have been called. `WHERE` is optional.
+
 #### Shared
 
 | Method | Description |
 |--------|-------------|
-| `toSql()` | Build the final SQL string (`SELECT`, `INSERT`, or `UPDATE`). |
+| `toSql()` | Build the final SQL string (`SELECT`, `INSERT`, `UPDATE`, or `DELETE`). |
 | `build()` | Alias for `toSql()`. |
 
-Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE`) cannot be mixed on the same builder instance. `whereEq` / `whereIn` are shared by `SELECT` and `UPDATE`.
+Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`) cannot be mixed on the same builder instance. `whereEq` / `whereIn` are shared by `SELECT`, `UPDATE`, and `DELETE`.
 
 ### Types
 
@@ -218,7 +263,21 @@ Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE`) cannot be
 
 `string` \| `number` \| `boolean` \| `null`
 
-Used in `WHERE`, `INSERT`, `UPDATE` / `SET`, and `VALUES` clauses.
+Used in `WHERE`, `INSERT`, `UPDATE` / `SET`, `DELETE`, and `VALUES` clauses. Non-finite numbers (`NaN`, `Infinity`) are rejected by `FormatScalar`.
+
+#### `SelectColumn`
+
+`string` \| `{ column: string; as?: string }`
+
+A bare column name, or an object with an optional `AS` alias.
+
+#### `OrderDirection`
+
+`'asc'` \| `'desc'`
+
+#### `OrderByEntry`
+
+`{ column: string; direction: OrderDirection }`
 
 #### `InsertRow`
 
@@ -234,7 +293,6 @@ Column order follows `Object.keys` insertion order of the object passed to `set(
 
 ### Out of scope (current phase)
 
-- `DELETE`
 - `JOIN`, `WITH`, subquery `FROM`, `GROUP BY`, `HAVING`, window functions
 - `StartQueryExecution`, result polling, Glue catalog APIs
 - Environment variable reads or query-plan optimization

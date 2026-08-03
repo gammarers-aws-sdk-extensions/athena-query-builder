@@ -1,7 +1,7 @@
 import { AthenaQueryBuilder } from '../../src';
 
 describe('AthenaQueryBuilder (INSERT)', () => {
-  test('generates minimal INSERT with one row', () => {
+  test('should generate minimal INSERT with one row', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_id: 'ex-1' })
@@ -11,7 +11,7 @@ describe('AthenaQueryBuilder (INSERT)', () => {
 VALUES ('ex-1')`);
   });
 
-  test('escapes string literals in values', () => {
+  test('should escape string literals in values', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_name: "O'Brien" })
@@ -21,7 +21,7 @@ VALUES ('ex-1')`);
 VALUES ('O''Brien')`);
   });
 
-  test('supports number, boolean, and null scalars', () => {
+  test('should support number, boolean, and null scalars', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')
       .values({
@@ -35,7 +35,7 @@ VALUES ('O''Brien')`);
 VALUES (3, TRUE, NULL)`);
   });
 
-  test('inserts multiple rows in one statement', () => {
+  test('should insert multiple rows in one statement', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')
       .values([
@@ -48,7 +48,7 @@ VALUES (3, TRUE, NULL)`);
 VALUES ('ex-1', 'a'), ('ex-2', 'b')`);
   });
 
-  test('appends rows across multiple values() calls', () => {
+  test('should append rows across multiple values() calls', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_id: 'ex-1' })
@@ -59,7 +59,7 @@ VALUES ('ex-1', 'a'), ('ex-2', 'b')`);
 VALUES ('ex-1'), ('ex-2')`);
   });
 
-  test('builder is immutable — branches do not affect each other', () => {
+  test('should keep branches immutable without affecting each other', () => {
     const base = new AthenaQueryBuilder().into('example_table');
 
     const rowA = base.values({ example_id: 'ex-a' });
@@ -72,14 +72,14 @@ VALUES ('ex-b')`);
     expect(() => base.toSql()).toThrow('values()');
   });
 
-  test('build() returns same SQL as toSql()', () => {
+  test('should return the same SQL from build() and toSql()', () => {
     const builder = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_id: 'ex-1' });
     expect(builder.build()).toBe(builder.toSql());
   });
 
-  test('throws when into or values missing', () => {
+  test('should throw when into or values is missing', () => {
     expect(() =>
       new AthenaQueryBuilder().values({ example_id: 'ex-1' }).toSql(),
     ).toThrow('into()');
@@ -88,13 +88,25 @@ VALUES ('ex-b')`);
     );
   });
 
-  test('throws when row has no columns', () => {
+  test('should throw when row has no columns', () => {
     expect(() =>
       new AthenaQueryBuilder().into('example_table').values({}).toSql(),
     ).toThrow('at least one column');
   });
 
-  test('rejects invalid identifiers', () => {
+  test('should throw when a later row is missing a column from the first row', () => {
+    expect(() =>
+      new AthenaQueryBuilder()
+        .into('example_table')
+        .values([
+          { example_id: 'ex-1', example_value: 'a' },
+          { example_id: 'ex-2' },
+        ])
+        .toSql(),
+    ).toThrow('Missing column "example_value"');
+  });
+
+  test('should reject invalid identifiers', () => {
     expect(() =>
       new AthenaQueryBuilder()
         .into('bad-column')
@@ -103,7 +115,7 @@ VALUES ('ex-b')`);
     ).toThrow('Invalid SQL identifier');
   });
 
-  test('rejects mixing INSERT with SELECT methods', () => {
+  test('should reject mixing INSERT with SELECT methods', () => {
     const insertBuilder = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_id: 'ex-1' });
@@ -116,7 +128,7 @@ VALUES ('ex-b')`);
     );
   });
 
-  test('rejects mixing INSERT with UPDATE methods', () => {
+  test('should reject mixing INSERT with UPDATE methods', () => {
     const insertBuilder = new AthenaQueryBuilder()
       .into('example_table')
       .values({ example_id: 'ex-1' });
@@ -125,6 +137,16 @@ VALUES ('ex-b')`);
       'not available for insert',
     );
     expect(() => insertBuilder.set({ example_value: 'hello' })).toThrow(
+      'not available for insert',
+    );
+  });
+
+  test('should reject mixing INSERT with DELETE methods', () => {
+    const insertBuilder = new AthenaQueryBuilder()
+      .into('example_table')
+      .values({ example_id: 'ex-1' });
+
+    expect(() => insertBuilder.delete('example_table')).toThrow(
       'not available for insert',
     );
   });

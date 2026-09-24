@@ -1,3 +1,7 @@
+import { pushWhere } from './push-where';
+import { requiredCall } from './required-call';
+import { AthenaQueryBuilderValidateError } from '../../core/errors';
+
 /**
  * Immutable internal state for a `DELETE` statement.
  */
@@ -16,18 +20,16 @@ export const EMPTY_DELETE_STATE: DeleteBuilderState = {
  *
  * @param state - DELETE builder state.
  * @returns Complete DELETE statement.
- * @throws {Error} When `delete()` has not been called.
+ * @throws {AthenaQueryBuilderValidateError} When `delete()` has not been called.
  */
 export const renderDeleteSql = (state: DeleteBuilderState): string => {
   if (state.table === undefined) {
-    throw new Error('delete() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('delete'));
   }
 
   const parts: string[] = [`DELETE FROM ${state.table}`];
 
-  if (state.whereClauses.length > 0) {
-    parts.push(`WHERE ${state.whereClauses.join(' AND ')}`);
-  }
+  pushWhere(parts, state.whereClauses);
 
   return parts.join('\n');
 };

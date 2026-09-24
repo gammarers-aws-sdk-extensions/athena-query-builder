@@ -1,4 +1,7 @@
 import { assertIdentifier, formatScalar } from './instances';
+import { pushWhere } from './push-where';
+import { requiredCall } from './required-call';
+import { AthenaQueryBuilderValidateError } from '../../core/errors';
 import type { UpdateAssignments, WhereScalar } from '../../types';
 
 /**
@@ -21,7 +24,7 @@ export const EMPTY_UPDATE_STATE: UpdateBuilderState = {
  * @param column - Column name.
  * @param value - Scalar assigned to the column (`null` → `NULL`).
  * @returns SQL assignment fragment such as `example_value = 'hello'`.
- * @throws {Error} When {@link column} is not a valid identifier.
+ * @throws {AthenaQueryBuilderValidateError} When {@link column} is not a valid identifier.
  */
 const formatAssignment = (column: string, value: WhereScalar): string => {
   const col = assertIdentifier.execute(column);
@@ -33,22 +36,22 @@ const formatAssignment = (column: string, value: WhereScalar): string => {
  *
  * @param state - UPDATE builder state.
  * @returns Complete UPDATE statement.
- * @throws {Error} When `update()` or `set()` has not been called, or when a
+ * @throws {AthenaQueryBuilderValidateError} When `update()` or `set()` has not been called, or when a
  *   column name is not a valid identifier.
  */
 export const renderUpdateSql = (state: UpdateBuilderState): string => {
   if (state.table === undefined) {
-    throw new Error('update() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('update'));
   }
 
   const assignments = state.assignments;
   if (assignments === undefined) {
-    throw new Error('set() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('set'));
   }
 
   const columns = Object.keys(assignments);
   if (columns.length === 0) {
-    throw new Error('set() requires at least one column assignment');
+    throw new AthenaQueryBuilderValidateError('set() requires at least one column assignment');
   }
 
   const setList = columns
@@ -60,9 +63,7 @@ export const renderUpdateSql = (state: UpdateBuilderState): string => {
     `SET ${setList}`,
   ];
 
-  if (state.whereClauses.length > 0) {
-    parts.push(`WHERE ${state.whereClauses.join(' AND ')}`);
-  }
+  pushWhere(parts, state.whereClauses);
 
   return parts.join('\n');
 };

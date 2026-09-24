@@ -1,4 +1,7 @@
-import { AthenaQueryBuilder } from '../../src';
+import {
+  AthenaQueryBuilder,
+  AthenaQueryBuilderValidateError,
+} from '../../src';
 
 describe('AthenaQueryBuilder', () => {
   test('should generate minimal SELECT FROM', () => {
@@ -66,6 +69,75 @@ WHERE example_count = 3 AND deleted_at IS NULL`);
     expect(sql).toBe(`SELECT example_id
 FROM example_table
 WHERE example_key IN ('ex-1', 'ex-2')`);
+  });
+
+  test('should render comparison, range, like, and negated predicates', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .whereNe('example_status', 'draft')
+      .whereNe('deleted_at', null)
+      .whereLt('example_count', 10)
+      .whereGt('example_count', 0)
+      .whereLte('example_score', 100)
+      .whereGte('example_score', 1)
+      .whereBetween('example_count', 1, 9)
+      .whereLike('example_name', "O'Brien%")
+      .whereNotIn('example_key', ['ex-1', null])
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE example_status <> 'draft' AND deleted_at IS NOT NULL AND example_count < 10 AND example_count > 0 AND example_score <= 100 AND example_score >= 1 AND example_count BETWEEN 1 AND 9 AND example_name LIKE 'O''Brien%' AND example_key NOT IN ('ex-1', NULL)`);
+  });
+
+  test('should yield 1=1 for empty whereNotIn array', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .whereNotIn('example_key', [])
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE 1=1`);
+  });
+
+  test.each(['whereLt', 'whereGt', 'whereLte', 'whereGte'] as const)(
+    'should reject null in %s',
+    (method) => {
+      const builder = new AthenaQueryBuilder()
+        .select(['example_id'])
+        .from('example_table');
+      expect(() => builder[method]('example_count', null)).toThrow(
+        AthenaQueryBuilderValidateError,
+      );
+      expect(() => builder[method]('example_count', null)).toThrow(
+        `${method}() does not accept null`,
+      );
+    },
+  );
+
+  test('should reject null bounds in whereBetween', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    expect(() => builder.whereBetween('example_count', null, 1)).toThrow(
+      'whereBetween() does not accept null',
+    );
+    expect(() => builder.whereBetween('example_count', 1, null)).toThrow(
+      'whereBetween() does not accept null',
+    );
+  });
+
+  test('should reject a non-string whereLike pattern', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    expect(() => {
+      // @ts-expect-error -- exercise the runtime guard for a non-string pattern
+      builder.whereLike('example_name', null);
+    }).toThrow(AthenaQueryBuilderValidateError);
   });
 
   test('should yield 1=0 for empty whereIn array', () => {
@@ -173,6 +245,16 @@ FROM example_table`);
     expect(() => new AthenaQueryBuilder().toSql()).toThrow(
       'select(), into(), update(), or delete() is required before toSql()',
     );
+  });
+
+  test('should reject an unknown orderBy direction', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    expect(() => {
+      // @ts-expect-error -- exercise the runtime guard for a bad direction
+      builder.orderBy('example_id', 'sideways');
+    }).toThrow(AthenaQueryBuilderValidateError);
   });
 
   test('should throw when orderBy is given a column without direction', () => {

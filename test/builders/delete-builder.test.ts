@@ -1,5 +1,4 @@
 import { AthenaQueryBuilder } from '../../src';
-import { renderDeleteSql } from '../../src/builders/internal/delete-state';
 
 describe('AthenaQueryBuilder (DELETE)', () => {
   test('should generate minimal DELETE FROM', () => {
@@ -48,6 +47,18 @@ WHERE deleted_at IS NULL`);
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
+  test('should support range, like, and not-in predicates', () => {
+    const sql = new AthenaQueryBuilder()
+      .delete('example_table')
+      .whereBetween('example_count', 1, 5)
+      .whereLike('example_name', 'ex%')
+      .whereNotIn('example_key', [])
+      .toSql();
+
+    expect(sql).toBe(`DELETE FROM example_table
+WHERE example_count BETWEEN 1 AND 5 AND example_name LIKE 'ex%' AND 1=1`);
+  });
+
   test('should yield 1=0 for empty whereIn array', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')
@@ -93,10 +104,6 @@ WHERE example_id = 'ex-b'`);
     expect(() => new AthenaQueryBuilder().delete('bad-table').toSql()).toThrow(
       'Invalid SQL identifier',
     );
-  });
-
-  test('should throw when renderDeleteSql is called without a table', () => {
-    expect(() => renderDeleteSql({ whereClauses: [] })).toThrow('delete()');
   });
 
   test('should reject mixing DELETE with SELECT methods', () => {

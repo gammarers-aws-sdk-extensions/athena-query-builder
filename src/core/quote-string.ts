@@ -1,3 +1,6 @@
+/** SQL string delimiter. Apostrophes inside literals are escaped by doubling this character. */
+const SQL_QUOTE = "'";
+
 /**
  * Formats a JavaScript string as a single-quoted SQL string literal.
  *
@@ -11,6 +14,7 @@ export class QuoteString {
    * @returns SQL string literal (e.g. `'hello'`).
    */
   public execute(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
+    const escaped = value.split(SQL_QUOTE).join(SQL_QUOTE + SQL_QUOTE);
+    return `${SQL_QUOTE}${escaped}${SQL_QUOTE}`;
   }
 }

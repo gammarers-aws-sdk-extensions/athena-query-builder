@@ -1,4 +1,9 @@
-import { AssertIdentifier, FormatScalar, QuoteString } from '../src';
+import {
+  AssertIdentifier,
+  AthenaQueryBuilderValidateError,
+  FormatScalar,
+  QuoteString,
+} from '../src';
 
 describe('QuoteString', () => {
   const quoteString = new QuoteString();
@@ -22,7 +27,7 @@ describe('AssertIdentifier', () => {
 
   test('should reject invalid identifiers', () => {
     expect(() => assertIdentifier.execute('bad-column')).toThrow(
-      'Invalid SQL identifier',
+      AthenaQueryBuilderValidateError,
     );
   });
 });
@@ -49,10 +54,10 @@ describe('FormatScalar', () => {
 
   test('should reject non-finite numbers', () => {
     expect(() => formatScalar.execute(Number.NaN)).toThrow(
-      'Invalid numeric literal',
+      AthenaQueryBuilderValidateError,
     );
     expect(() => formatScalar.execute(Number.POSITIVE_INFINITY)).toThrow(
-      'Invalid numeric literal',
+      AthenaQueryBuilderValidateError,
     );
   });
 });

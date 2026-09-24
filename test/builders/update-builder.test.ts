@@ -1,5 +1,4 @@
 import { AthenaQueryBuilder } from '../../src';
-import { renderUpdateSql } from '../../src/builders/internal/update-state';
 
 describe('AthenaQueryBuilder (UPDATE)', () => {
   test('should generate minimal UPDATE with SET', () => {
@@ -64,6 +63,19 @@ SET example_status = 'archived'
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
+  test('should support comparison and negated where predicates', () => {
+    const sql = new AthenaQueryBuilder()
+      .update('example_table')
+      .set({ example_status: 'archived' })
+      .whereGt('example_count', 0)
+      .whereNe('deleted_at', null)
+      .toSql();
+
+    expect(sql).toBe(`UPDATE example_table
+SET example_status = 'archived'
+WHERE example_count > 0 AND deleted_at IS NOT NULL`);
+  });
+
   test('should yield 1=0 for empty whereIn array', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')
@@ -126,16 +138,6 @@ SET example_value = 'base'`);
     expect(() =>
       new AthenaQueryBuilder().update('example_table').set({}).toSql(),
     ).toThrow('at least one column');
-  });
-
-  test('should throw when renderUpdateSql receives empty assignments', () => {
-    expect(() =>
-      renderUpdateSql({
-        table: 'example_table',
-        assignments: {},
-        whereClauses: [],
-      }),
-    ).toThrow('at least one column assignment');
   });
 
   test('should reject invalid identifiers', () => {

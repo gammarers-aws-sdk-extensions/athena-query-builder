@@ -1,8 +1,10 @@
-/** Pattern for unquoted SQL identifiers in Phase 1 (alphanumeric, dot, underscore). */
+import { AthenaQueryBuilderValidateError } from './errors';
+
+/** Pattern for unquoted SQL identifiers (alphanumeric, dot, underscore). */
 const IDENTIFIER_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
 
 /**
- * Validates unquoted SQL identifiers for Athena/Presto-style SQL (Phase 1).
+ * Validates unquoted SQL identifiers for Athena/Presto-style SQL.
  *
  * Allowed characters: alphanumeric, dot, and underscore. Names must start with
  * a letter or underscore.
@@ -13,11 +15,11 @@ export class AssertIdentifier {
    *
    * @param name - Table or column name (e.g. `example_table`, `example_table.col`).
    * @returns The validated identifier string.
-   * @throws {Error} When the name contains invalid characters.
+   * @throws {AthenaQueryBuilderValidateError} When the name contains invalid characters.
    */
   public execute(name: string): string {
     if (!IDENTIFIER_PATTERN.test(name)) {
-      throw new Error(`Invalid SQL identifier: ${name}`);
+      throw new AthenaQueryBuilderValidateError(`Invalid SQL identifier: ${name}`);
     }
     return name;
   }

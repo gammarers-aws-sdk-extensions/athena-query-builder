@@ -1,8 +1,9 @@
 # Athena Query Builder
 
-[![npm version](https://img.shields.io/npm/v/athena-query-builder/latest.svg)](https://www.npmjs.com/package/athena-query-builder)
-[![license](https://img.shields.io/github/license/gammarers-aws-sdk-extensions/athena-query-builder.svg)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/blob/main/LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/athena-query-builder?style=flat-square)](https://www.npmjs.com/package/athena-query-builder)
+[![license](https://img.shields.io/npm/l/athena-query-builder?style=flat-square)](https://www.npmjs.com/package/athena-query-builder)
+[![Node.js](https://img.shields.io/node/v/athena-query-builder?style=flat-square)](https://www.npmjs.com/package/athena-query-builder)
+[![build](https://img.shields.io/github/actions/workflow/status/gammarers-aws-sdk-extensions/athena-query-builder/build.yml?label=build&style=flat-square)](https://github.com/gammarers-aws-sdk-extensions/athena-query-builder/actions/workflows/build.yml)
 
 Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build single-table `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements with escaped string literals—no query execution, catalog access, or ORM.
 
@@ -10,29 +11,36 @@ Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build
 
 - **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
 - **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
-- **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereIn`, `orderBy`, `limit`
+- **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereNe`, `whereLt`, `whereGt`, `whereLte`, `whereGte`, `whereBetween`, `whereLike`, `whereIn`, `whereNotIn`, `orderBy`, `limit`
 - **Single-table `INSERT`** — `into`, `values` (single or multiple rows)
-- **Single-table `UPDATE`** — `update`, `set`, `whereEq`, `whereIn`
-- **Single-table `DELETE`** — `delete`, `whereEq`, `whereIn`
+- **Single-table `UPDATE`** — `update`, `set`, and the same `WHERE` methods as `SELECT`
+- **Single-table `DELETE`** — `delete` and the same `WHERE` methods as `SELECT`
 - **Statement isolation** — Mixing methods for different statement kinds on the same builder throws
 - **Safe literals** — String values are escaped and embedded via `QuoteString` / `FormatScalar` (no bind parameters)
 - **`whereIn` empty array** — Renders `1=0` (always false) instead of invalid `IN ()`
+- **`whereNotIn` empty array** — Renders `1=1` (always true) instead of invalid `NOT IN ()`
 - **Identifier validation** — Unquoted names limited to alphanumeric, dot, and underscore
 - **TypeScript** — Strict types for columns, sort direction, insert rows, update assignments, and scalar values
-- **Utilities** — `QuoteString`, `AssertIdentifier`, and `FormatScalar` classes under `utils/` for reuse
+- **Utilities** — `QuoteString`, `AssertIdentifier`, and `FormatScalar` for identifiers and scalar literals
 
 ## Installation
 
-**npm**
+### npm
 
 ```bash
 npm install athena-query-builder
 ```
 
-**yarn**
+### yarn
 
 ```bash
 yarn add athena-query-builder
+```
+
+### pnpm
+
+```bash
+pnpm add athena-query-builder
 ```
 
 ## Usage
@@ -210,9 +218,17 @@ new FormatScalar().execute(42);                  // '42'
 | `select(columns)` | `SELECT` list. Each entry is a column name or `{ column, as? }`. |
 | `from(table)` | Single table name (validated identifier). |
 | `whereEq(column, value)` | `column = literal` or `column IS NULL` when `value` is `null`. |
+| `whereNe(column, value)` | `column <> literal` or `column IS NOT NULL` when `value` is `null`. |
+| `whereLt(column, value)` | `column < literal`. `null` is rejected. |
+| `whereGt(column, value)` | `column > literal`. `null` is rejected. |
+| `whereLte(column, value)` | `column <= literal`. `null` is rejected. |
+| `whereGte(column, value)` | `column >= literal`. `null` is rejected. |
+| `whereBetween(column, low, high)` | `column BETWEEN low AND high` (inclusive; bounds are not reordered). `null` bounds are rejected. |
+| `whereLike(column, pattern)` | `column LIKE 'pattern'`. `pattern` is a string. `%` and `_` stay wildcards; quotes are escaped. |
 | `whereIn(column, values)` | `column IN (...)`; empty `values` → `1=0`. |
-| `orderBy(column, direction)` | Append one `ORDER BY` entry (`'asc'` \| `'desc'`). |
-| `orderBy(entries)` | Append multiple `{ column, direction }` entries. |
+| `whereNotIn(column, values)` | `column NOT IN (...)`; empty `values` → `1=1`. `null` entries are rendered as `NULL`. |
+| `orderBy(column, direction)` | Append one `ORDER BY` entry (`'asc'` \| `'desc'`). Any other direction is rejected. |
+| `orderBy(entries)` | Append multiple `{ column, direction }` entries. Each direction must be `'asc'` or `'desc'`. |
 | `limit(n)` | `LIMIT n` (`n` must be a non-negative integer). |
 
 `toSql()` for `SELECT` requires both `select()` and `from()` to have been called.
@@ -233,8 +249,7 @@ new FormatScalar().execute(42);                  // '42'
 |--------|-------------|
 | `update(table)` | Target table name (validated identifier). |
 | `set(assignments)` | `SET` column assignments (`UpdateAssignments`). Multiple calls merge; later values win for the same column. `null` → `column = NULL`. |
-| `whereEq(column, value)` | Same as SELECT (`column = literal` or `IS NULL`). |
-| `whereIn(column, values)` | Same as SELECT (`IN (...)`; empty → `1=0`). |
+| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` | Same as SELECT. |
 
 `toSql()` for `UPDATE` requires both `update()` and `set()` to have been called. `WHERE` is optional.
 
@@ -243,8 +258,7 @@ new FormatScalar().execute(42);                  // '42'
 | Method | Description |
 |--------|-------------|
 | `delete(table)` | Target table name (validated identifier). |
-| `whereEq(column, value)` | Same as SELECT (`column = literal` or `IS NULL`). |
-| `whereIn(column, values)` | Same as SELECT (`IN (...)`; empty → `1=0`). |
+| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` | Same as SELECT. |
 
 `toSql()` for `DELETE` requires `delete()` to have been called. `WHERE` is optional.
 
@@ -255,7 +269,7 @@ new FormatScalar().execute(42);                  // '42'
 | `toSql()` | Build the final SQL string (`SELECT`, `INSERT`, `UPDATE`, or `DELETE`). |
 | `build()` | Alias for `toSql()`. |
 
-Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`) cannot be mixed on the same builder instance. `whereEq` / `whereIn` are shared by `SELECT`, `UPDATE`, and `DELETE`.
+Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`) cannot be mixed on the same builder instance. WHERE methods are shared by `SELECT`, `UPDATE`, and `DELETE`.
 
 ### Types
 
@@ -290,6 +304,15 @@ Column order follows `Object.keys` insertion order of the first row passed to `v
 `Record<string, WhereScalar>`
 
 Column order follows `Object.keys` insertion order of the object passed to `set()` (merged across multiple calls).
+
+### Errors
+
+Check the subclass before the base class.
+
+| Error | When |
+|-------|------|
+| `AthenaQueryBuilderValidateError` | Invalid input: bad identifiers, missing required calls, mixed statement kinds, non-finite numbers, a sort direction other than `'asc'` or `'desc'`, `null` in comparisons or `BETWEEN`, or a non-string `LIKE` pattern. |
+| `AthenaQueryBuilderError` | Abstract base. Every error from this package is an instance of this class. |
 
 ### Out of scope (current phase)
 

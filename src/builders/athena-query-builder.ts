@@ -398,7 +398,8 @@ export class AthenaQueryBuilder {
    * @param direction - Sort direction when using the two-argument form.
    * @returns A new builder instance.
    * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`, `UPDATE`, or
-   *   `DELETE`.
+   *   `DELETE`, when {@link direction} is not `'asc'` or `'desc'`, or when
+   *   {@link column} is not a valid identifier.
    */
   public orderBy(column: string, direction: OrderDirection): AthenaQueryBuilder;
   /**
@@ -407,7 +408,8 @@ export class AthenaQueryBuilder {
    * @param entries - Column and direction pairs.
    * @returns A new builder instance.
    * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`, `UPDATE`, or
-   *   `DELETE`.
+   *   `DELETE`, when a direction is not `'asc'` or `'desc'`, or when a column
+   *   name is not a valid identifier.
    */
   public orderBy(entries: readonly OrderByEntry[]): AthenaQueryBuilder;
   /**
@@ -416,7 +418,8 @@ export class AthenaQueryBuilder {
    * @returns A new builder instance.
    * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`, `UPDATE`, or
    *   `DELETE`, when the two-argument form is used without {@link direction},
-   *   or when a column name is not a valid identifier.
+   *   when a direction is not `'asc'` or `'desc'`, or when a column name is not
+   *   a valid identifier.
    */
   public orderBy(
     columnOrEntries: string | readonly OrderByEntry[],

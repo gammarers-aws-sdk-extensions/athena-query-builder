@@ -23,7 +23,7 @@ export abstract class AthenaQueryBuilderError extends Error {
 }
 
 /**
- * Invalid builder input: bad identifiers, missing clauses, or predicates that cannot be rendered.
+ * Invalid builder input: bad identifiers, missing calls, mixed statement kinds, or values that cannot be rendered.
  */
 export class AthenaQueryBuilderValidateError extends AthenaQueryBuilderError {
   /** Stable name for `instanceof` checks across compile targets. */

@@ -3,7 +3,8 @@
  *
  * @module builders/internal
  */
-import { AssertIdentifier, FormatScalar } from '../../utils';
+import { AssertIdentifier } from '../../core/assert-identifier';
+import { FormatScalar } from '../../core/format-scalar';
 
 /** Shared {@link AssertIdentifier} instance for query builders. */
 export const assertIdentifier = new AssertIdentifier();

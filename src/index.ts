@@ -9,6 +9,10 @@
  * @module athena-query-builder
  */
 export { AthenaQueryBuilder } from './builders';
+export {
+  AthenaQueryBuilderError,
+  AthenaQueryBuilderValidateError,
+} from './core/errors';
 export { AssertIdentifier, FormatScalar, QuoteString } from './utils';
 export type {
   InsertRow,

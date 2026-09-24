@@ -1,4 +1,6 @@
 import { assertIdentifier, formatScalar } from './instances';
+import { requiredCall } from './required-call';
+import { AthenaQueryBuilderValidateError } from '../../core/errors';
 import type { InsertRow } from '../../types';
 
 /**
@@ -19,12 +21,12 @@ export const EMPTY_INSERT_STATE: InsertBuilderState = {
  *
  * @param rows - Non-empty list of rows to insert.
  * @returns Ordered column names for the INSERT column list.
- * @throws {Error} When {@link rows} is empty.
+ * @throws {AthenaQueryBuilderValidateError} When {@link rows} is empty.
  */
 const resolveColumns = (rows: readonly InsertRow[]): readonly string[] => {
   const firstRow = rows[0];
   if (firstRow === undefined) {
-    throw new Error('values() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('values'));
   }
   return Object.keys(firstRow);
 };
@@ -35,7 +37,7 @@ const resolveColumns = (rows: readonly InsertRow[]): readonly string[] => {
  * @param row - Row object.
  * @param columns - Column names in insertion order (from first row).
  * @returns SQL fragment such as `('a', 1, NULL)`.
- * @throws {Error} When {@link row} is missing a column from {@link columns}.
+ * @throws {AthenaQueryBuilderValidateError} When {@link row} is missing a column from {@link columns}.
  */
 const formatValueTuple = (
   row: InsertRow,
@@ -43,7 +45,7 @@ const formatValueTuple = (
 ): string => {
   const literals = columns.map((col) => {
     if (!(col in row)) {
-      throw new Error(`Missing column "${col}" in insert row`);
+      throw new AthenaQueryBuilderValidateError(`Missing column "${col}" in insert row`);
     }
     return formatScalar.execute(row[col]);
   });
@@ -55,15 +57,15 @@ const formatValueTuple = (
  *
  * @param state - INSERT builder state.
  * @returns Complete INSERT statement.
- * @throws {Error} When `into()` or `values()` has not been called, when a row
+ * @throws {AthenaQueryBuilderValidateError} When `into()` or `values()` has not been called, when a row
  *   is missing a column, or when a column name is not a valid identifier.
  */
 export const renderInsertSql = (state: InsertBuilderState): string => {
   if (state.table === undefined) {
-    throw new Error('into() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('into'));
   }
   if (state.rows.length === 0) {
-    throw new Error('values() is required before toSql()');
+    throw new AthenaQueryBuilderValidateError(requiredCall('values'));
   }
 
   const columns = resolveColumns(state.rows);

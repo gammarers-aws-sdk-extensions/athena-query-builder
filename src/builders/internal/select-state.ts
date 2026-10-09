@@ -2,6 +2,7 @@ import { assertIdentifier } from './instances';
 import { orderDirectionSql } from './order-direction';
 import { pushWhere } from './push-where';
 import { requiredCall } from './required-call';
+import type { WhereClause } from './where-clause';
 import { AthenaQueryBuilderValidateError } from '../../core/errors';
 import type {
   OrderByEntry,
@@ -14,7 +15,7 @@ import type {
 export interface SelectBuilderState {
   readonly selectColumns: readonly SelectColumn[];
   readonly fromTable?: string;
-  readonly whereClauses: readonly string[];
+  readonly whereClauses: readonly WhereClause[];
   readonly orderByClauses: readonly OrderByEntry[];
   readonly limitValue?: number;
 }

@@ -38,9 +38,13 @@ import {
   type UpdateBuilderState,
   renderUpdateSql,
 } from './internal/update-state';
+import type { WhereClause, WhereJoin } from './internal/where-clause';
 
 /** Statement kinds supported by {@link AthenaQueryBuilder}. */
 type StatementKind = 'select' | 'insert' | 'update' | 'delete';
+
+/** WHERE group methods that share the same callback rules. */
+type WhereGroupMethod = 'whereGroup' | 'orWhereGroup';
 
 /**
  * Immutable internal state for {@link AthenaQueryBuilder}.
@@ -59,6 +63,32 @@ const EMPTY_STATE: BuilderState = {
   insert: EMPTY_INSERT_STATE,
   update: EMPTY_UPDATE_STATE,
   delete: EMPTY_DELETE_STATE,
+};
+
+/**
+ * A group callback may only fill WHERE clauses.
+ *
+ * WHERE methods on a fresh builder set the kind to `select` and leave the
+ * other SELECT fields empty. `select`, `from`, `orderBy`, and `limit` fill
+ * those fields. INSERT, UPDATE, and DELETE set another statement kind.
+ *
+ * @param state - Builder state returned by a WHERE group callback.
+ * @returns Whether that state contains only WHERE clauses.
+ */
+const isWhereOnlyState = (state: BuilderState): boolean => {
+  if (state.kind === 'insert' || state.kind === 'update' || state.kind === 'delete') {
+    return false;
+  }
+
+  const select = state.select;
+  if (select.selectColumns.length > 0 || select.fromTable !== undefined) {
+    return false;
+  }
+  if (select.orderByClauses.length > 0 || select.limitValue !== undefined) {
+    return false;
+  }
+
+  return true;
 };
 
 /**
@@ -196,7 +226,7 @@ export class AthenaQueryBuilder {
    */
   public whereEq(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereEq');
-    return this.appendWhere(formatWhereEq(column, value));
+    return this.appendPredicate(formatWhereEq(column, value));
   }
 
   /**
@@ -215,7 +245,7 @@ export class AthenaQueryBuilder {
     values: readonly WhereScalar[],
   ): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereIn');
-    return this.appendWhere(formatWhereIn(column, values));
+    return this.appendPredicate(formatWhereIn(column, values));
   }
 
   /**
@@ -231,7 +261,7 @@ export class AthenaQueryBuilder {
    */
   public whereNe(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereNe');
-    return this.appendWhere(formatWhereNe(column, value));
+    return this.appendPredicate(formatWhereNe(column, value));
   }
 
   /**
@@ -247,7 +277,7 @@ export class AthenaQueryBuilder {
    */
   public whereLt(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereLt');
-    return this.appendWhere(formatWhereCompare(column, '<', value, 'whereLt'));
+    return this.appendPredicate(formatWhereCompare(column, '<', value, 'whereLt'));
   }
 
   /**
@@ -263,7 +293,7 @@ export class AthenaQueryBuilder {
    */
   public whereGt(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereGt');
-    return this.appendWhere(formatWhereCompare(column, '>', value, 'whereGt'));
+    return this.appendPredicate(formatWhereCompare(column, '>', value, 'whereGt'));
   }
 
   /**
@@ -279,7 +309,7 @@ export class AthenaQueryBuilder {
    */
   public whereLte(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereLte');
-    return this.appendWhere(formatWhereCompare(column, '<=', value, 'whereLte'));
+    return this.appendPredicate(formatWhereCompare(column, '<=', value, 'whereLte'));
   }
 
   /**
@@ -295,7 +325,7 @@ export class AthenaQueryBuilder {
    */
   public whereGte(column: string, value: WhereScalar): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereGte');
-    return this.appendWhere(formatWhereCompare(column, '>=', value, 'whereGte'));
+    return this.appendPredicate(formatWhereCompare(column, '>=', value, 'whereGte'));
   }
 
   /**
@@ -316,7 +346,7 @@ export class AthenaQueryBuilder {
     high: WhereScalar,
   ): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereBetween');
-    return this.appendWhere(formatWhereBetween(column, low, high));
+    return this.appendPredicate(formatWhereBetween(column, low, high));
   }
 
   /**
@@ -333,7 +363,7 @@ export class AthenaQueryBuilder {
    */
   public whereLike(column: string, pattern: string): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereLike');
-    return this.appendWhere(formatWhereLike(column, pattern));
+    return this.appendPredicate(formatWhereLike(column, pattern));
   }
 
   /**
@@ -352,18 +382,80 @@ export class AthenaQueryBuilder {
     values: readonly WhereScalar[],
   ): AthenaQueryBuilder {
     this.assertKind(['select', 'update', 'delete'], 'whereNotIn');
-    return this.appendWhere(formatWhereNotIn(column, values));
+    return this.appendPredicate(formatWhereNotIn(column, values));
   }
 
   /**
-   * Appends a WHERE predicate to the current SELECT, UPDATE, or DELETE state.
+   * Appends a parenthesized WHERE group joined with `AND`.
+   *
+   * The callback receives an empty builder. Call WHERE methods on it, including
+   * nested {@link whereGroup} and {@link orWhereGroup}, and return that chain.
+   * Each call returns a new instance, so returning the original argument drops
+   * the conditions. The group is always wrapped in parentheses.
+   *
+   * At the top level, `AND` binds more tightly than `OR`. Wrap an `OR` in
+   * {@link whereGroup} when the whole `OR` must be one side of an `AND`.
+   *
+   * Available for `SELECT`, `UPDATE`, and `DELETE` statements.
+   *
+   * @param build - Callback that returns the grouped WHERE chain.
+   * @returns A new builder instance.
+   * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`,
+   *   when {@link build} does not return a builder, when the callback calls a
+   *   non-WHERE method, or when the group has no conditions.
+   */
+  public whereGroup(
+    build: (query: AthenaQueryBuilder) => AthenaQueryBuilder,
+  ): AthenaQueryBuilder {
+    this.assertKind(['select', 'update', 'delete'], 'whereGroup');
+    return this.appendGroup(build, 'and', 'whereGroup');
+  }
+
+  /**
+   * Appends a parenthesized WHERE group joined with `OR`.
+   *
+   * Same callback rules as {@link whereGroup}. When this group is the first
+   * WHERE entry, the leading `OR` is omitted.
+   *
+   * Available for `SELECT`, `UPDATE`, and `DELETE` statements.
+   *
+   * @param build - Callback that returns the grouped WHERE chain.
+   * @returns A new builder instance.
+   * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`,
+   *   when {@link build} does not return a builder, when the callback calls a
+   *   non-WHERE method, or when the group has no conditions.
+   */
+  public orWhereGroup(
+    build: (query: AthenaQueryBuilder) => AthenaQueryBuilder,
+  ): AthenaQueryBuilder {
+    this.assertKind(['select', 'update', 'delete'], 'orWhereGroup');
+    return this.appendGroup(build, 'or', 'orWhereGroup');
+  }
+
+  /**
+   * Appends a WHERE predicate joined with `AND`.
    *
    * Callers must run {@link assertKind} first. An unset kind becomes `select`.
    *
-   * @param clause - SQL predicate fragment.
+   * @param sql - SQL predicate fragment.
    * @returns A new builder instance.
    */
-  private appendWhere(clause: string): AthenaQueryBuilder {
+  private appendPredicate(sql: string): AthenaQueryBuilder {
+    return this.appendClause({
+      join: 'and',
+      node: { kind: 'predicate', sql },
+    });
+  }
+
+  /**
+   * Appends one WHERE entry to the current SELECT, UPDATE, or DELETE state.
+   *
+   * Callers must run {@link assertKind} first. An unset kind becomes `select`.
+   *
+   * @param clause - Predicate or group, including how it joins the previous entry.
+   * @returns A new builder instance.
+   */
+  private appendClause(clause: WhereClause): AthenaQueryBuilder {
     if (this.state.kind === 'update') {
       return this.clone({
         kind: 'update',
@@ -389,6 +481,67 @@ export class AthenaQueryBuilder {
         whereClauses: [...this.state.select.whereClauses, clause],
       },
     });
+  }
+
+  /**
+   * Appends a parenthesized group taken from {@link build}.
+   *
+   * @param build - Callback that receives an empty builder and returns the group chain.
+   * @param join - Combinator with the previous WHERE entry.
+   * @param method - Method name used in validation errors.
+   * @returns A new builder instance.
+   * @throws {AthenaQueryBuilderValidateError} When {@link build} does not return a builder,
+   *   when the callback calls a non-WHERE method, or when the group has no conditions.
+   */
+  private appendGroup(
+    build: (query: AthenaQueryBuilder) => AthenaQueryBuilder,
+    join: WhereJoin,
+    method: WhereGroupMethod,
+  ): AthenaQueryBuilder {
+    return this.appendClause({
+      join,
+      node: {
+        kind: 'group',
+        clauses: this.clausesFromGroup(build, method),
+      },
+    });
+  }
+
+  /**
+   * Runs a WHERE group callback and returns its clauses.
+   *
+   * The callback starts from an empty builder so outer SELECT, UPDATE, or DELETE
+   * state cannot leak into the group.
+   *
+   * @param build - Callback that receives an empty builder and returns the group chain.
+   * @param method - Method name used in validation errors.
+   * @returns Clauses collected by the callback.
+   * @throws {AthenaQueryBuilderValidateError} When {@link build} does not return a builder,
+   *   when the callback calls a non-WHERE method, or when the group has no conditions.
+   */
+  private clausesFromGroup(
+    build: (query: AthenaQueryBuilder) => AthenaQueryBuilder,
+    method: WhereGroupMethod,
+  ): readonly WhereClause[] {
+    const grouped: unknown = build(new AthenaQueryBuilder());
+    if (!(grouped instanceof AthenaQueryBuilder)) {
+      throw new AthenaQueryBuilderValidateError(
+        `${method}() callback must return an AthenaQueryBuilder`,
+      );
+    }
+    if (!isWhereOnlyState(grouped.state)) {
+      throw new AthenaQueryBuilderValidateError(
+        `${method}() callback must only call WHERE methods`,
+      );
+    }
+
+    const clauses = grouped.state.select.whereClauses;
+    if (clauses.length === 0) {
+      throw new AthenaQueryBuilderValidateError(
+        `${method}() requires at least one condition`,
+      );
+    }
+    return clauses;
   }
 
   /**

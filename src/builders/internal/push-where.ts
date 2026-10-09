@@ -1,18 +1,20 @@
-/** Separator for predicates this builder can combine. `OR` is not supported. */
-const WHERE_AND = ' AND ';
+import { renderWhereBody, type WhereClause } from './where-clause';
 
 /**
- * Appends `WHERE ... AND ...` when the builder collected any predicates.
+ * Appends `WHERE ...` when the builder collected any clauses.
+ *
+ * Sibling clauses join with the combinator stored on each clause (`AND` or `OR`).
+ * Groups render in parentheses. The first clause does not emit a combinator.
  *
  * @param parts - SQL lines accumulated for the statement.
- * @param clauses - Predicate fragments, already rendered.
+ * @param clauses - Predicate and group entries, already structured.
  */
 export const pushWhere = (
   parts: string[],
-  clauses: readonly string[],
+  clauses: readonly WhereClause[],
 ): void => {
   if (clauses.length === 0) {
     return;
   }
-  parts.push(`WHERE ${clauses.join(WHERE_AND)}`);
+  parts.push(`WHERE ${renderWhereBody(clauses)}`);
 };

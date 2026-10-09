@@ -1,6 +1,7 @@
 import { assertIdentifier, formatScalar } from './instances';
 import { pushWhere } from './push-where';
 import { requiredCall } from './required-call';
+import type { WhereClause } from './where-clause';
 import { AthenaQueryBuilderValidateError } from '../../core/errors';
 import type { UpdateAssignments, WhereScalar } from '../../types';
 
@@ -10,7 +11,7 @@ import type { UpdateAssignments, WhereScalar } from '../../types';
 export interface UpdateBuilderState {
   readonly table?: string;
   readonly assignments?: UpdateAssignments;
-  readonly whereClauses: readonly string[];
+  readonly whereClauses: readonly WhereClause[];
 }
 
 /** Default empty `UPDATE` builder state. */

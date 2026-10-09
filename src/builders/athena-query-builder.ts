@@ -139,10 +139,19 @@ export class AthenaQueryBuilder {
   private readonly state: BuilderState;
 
   /**
-   * Creates a new builder, optionally from an internal state snapshot.
-   *
-   * @param state - Initial state; defaults to empty.
+   * Creates an empty builder.
    */
+  public constructor();
+  /**
+   * Creates a builder from an internal state snapshot.
+   *
+   * Published declarations omit this signature, so callers outside this file
+   * cannot pass the internal state.
+   *
+   * @internal
+   * @param state - Initial state.
+   */
+  public constructor(state: BuilderState);
   public constructor(state: BuilderState = EMPTY_STATE) {
     this.state = state;
   }

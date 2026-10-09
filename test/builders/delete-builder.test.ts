@@ -69,6 +69,25 @@ WHERE example_count BETWEEN 1 AND 5 AND example_name LIKE 'ex%' AND 1=1`);
 WHERE 1=0`);
   });
 
+  test('should OR parenthesized status and period groups', () => {
+    const sql = new AthenaQueryBuilder()
+      .delete('example_table')
+      .whereGroup((query) =>
+        query
+          .whereEq('example_status', 'open')
+          .whereGte('example_created_at', '2024-01-01'),
+      )
+      .orWhereGroup((query) =>
+        query
+          .whereEq('example_status', 'closed')
+          .whereBetween('example_closed_at', '2024-01-01', '2024-02-01'),
+      )
+      .toSql();
+
+    expect(sql).toBe(`DELETE FROM example_table
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+  });
+
   test('should combine whereEq and whereIn', () => {
     const sql = new AthenaQueryBuilder()
       .delete('example_table')

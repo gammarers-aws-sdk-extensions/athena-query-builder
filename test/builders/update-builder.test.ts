@@ -63,6 +63,27 @@ SET example_status = 'archived'
 WHERE example_key IN ('ex-1', 'ex-2')`);
   });
 
+  test('should OR parenthesized status and period groups', () => {
+    const sql = new AthenaQueryBuilder()
+      .update('example_table')
+      .set({ example_status: 'archived' })
+      .whereGroup((query) =>
+        query
+          .whereEq('example_status', 'open')
+          .whereGte('example_created_at', '2024-01-01'),
+      )
+      .orWhereGroup((query) =>
+        query
+          .whereEq('example_status', 'closed')
+          .whereBetween('example_closed_at', '2024-01-01', '2024-02-01'),
+      )
+      .toSql();
+
+    expect(sql).toBe(`UPDATE example_table
+SET example_status = 'archived'
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+  });
+
   test('should support comparison and negated where predicates', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')

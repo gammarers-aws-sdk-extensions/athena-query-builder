@@ -11,7 +11,8 @@ Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build
 
 - **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
 - **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
-- **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereNe`, `whereLt`, `whereGt`, `whereLte`, `whereGte`, `whereBetween`, `whereLike`, `whereIn`, `whereNotIn`, `orderBy`, `limit`
+- **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereNe`, `whereLt`, `whereGt`, `whereLte`, `whereGte`, `whereBetween`, `whereLike`, `whereIn`, `whereNotIn`, `whereGroup`, `orWhereGroup`, `orderBy`, `limit`
+- **WHERE groups** — `whereGroup` and `orWhereGroup` parenthesize conditions and join those groups with `AND` or `OR`
 - **Single-table `INSERT`** — `into`, `values` (single or multiple rows)
 - **Single-table `UPDATE`** — `update`, `set`, and the same `WHERE` methods as `SELECT`
 - **Single-table `DELETE`** — `delete` and the same `WHERE` methods as `SELECT`
@@ -184,6 +185,36 @@ DELETE FROM example_table
 WHERE example_key IN ('ex-1', 'ex-2')
 ```
 
+### Grouped WHERE
+
+`whereGroup` and `orWhereGroup` work on `SELECT`, `UPDATE`, and `DELETE`. Each callback receives an empty builder. Return the chain from that callback. Groups are always parenthesized. Outside a group, `AND` binds more tightly than `OR`.
+
+```typescript
+import { AthenaQueryBuilder } from 'athena-query-builder';
+
+const sql = new AthenaQueryBuilder()
+  .select(['example_id'])
+  .from('example_table')
+  .whereGroup((query) =>
+    query
+      .whereEq('example_status', 'open')
+      .whereGte('example_created_at', '2024-01-01')
+      .whereLt('example_created_at', '2024-02-01'),
+  )
+  .orWhereGroup((query) =>
+    query
+      .whereEq('example_status', 'closed')
+      .whereBetween('example_closed_at', '2024-01-01', '2024-02-01'),
+  )
+  .toSql();
+```
+
+```sql
+SELECT example_id
+FROM example_table
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01' AND example_created_at < '2024-02-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')
+```
+
 ### Immutable branching
 
 Reuse a base builder and branch without side effects:
@@ -227,11 +258,15 @@ new FormatScalar().execute(42);                  // '42'
 | `whereLike(column, pattern)` | `column LIKE 'pattern'`. `pattern` is a string. `%` and `_` stay wildcards; quotes are escaped. |
 | `whereIn(column, values)` | `column IN (...)`; empty `values` → `1=0`. |
 | `whereNotIn(column, values)` | `column NOT IN (...)`; empty `values` → `1=1`. `null` entries are rendered as `NULL`. |
+| `whereGroup(build)` | Parenthesized group joined with `AND`. `build` receives an empty builder, may call WHERE methods only (including nested groups), and must return that chain. An empty group is rejected. |
+| `orWhereGroup(build)` | Same as `whereGroup`, joined with `OR`. A leading `OR` is omitted when the group is the first WHERE entry. |
 | `orderBy(column, direction)` | Append one `ORDER BY` entry (`'asc'` \| `'desc'`). Any other direction is rejected. |
 | `orderBy(entries)` | Append multiple `{ column, direction }` entries. Each direction must be `'asc'` or `'desc'`. |
 | `limit(n)` | `LIMIT n` (`n` must be a non-negative integer). |
 
 `toSql()` for `SELECT` requires both `select()` and `from()` to have been called.
+
+`whereEq` through `whereNotIn` join with `AND`. `whereGroup` appends a parenthesized group with `AND`, and `orWhereGroup` appends one with `OR`. When `AND` and `OR` meet outside a group, `AND` binds more tightly, matching SQL. Wrap that `OR` in `whereGroup` when the whole disjunction must be one side of an `AND`.
 
 #### INSERT
 
@@ -249,7 +284,7 @@ new FormatScalar().execute(42);                  // '42'
 |--------|-------------|
 | `update(table)` | Target table name (validated identifier). |
 | `set(assignments)` | `SET` column assignments (`UpdateAssignments`). Multiple calls merge; later values win for the same column. `null` → `column = NULL`. |
-| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` | Same as SELECT. |
+| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` / `whereGroup` / `orWhereGroup` | Same as SELECT. |
 
 `toSql()` for `UPDATE` requires both `update()` and `set()` to have been called. `WHERE` is optional.
 
@@ -258,7 +293,7 @@ new FormatScalar().execute(42);                  // '42'
 | Method | Description |
 |--------|-------------|
 | `delete(table)` | Target table name (validated identifier). |
-| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` | Same as SELECT. |
+| `whereEq` / `whereNe` / `whereLt` / `whereGt` / `whereLte` / `whereGte` / `whereBetween` / `whereLike` / `whereIn` / `whereNotIn` / `whereGroup` / `orWhereGroup` | Same as SELECT. |
 
 `toSql()` for `DELETE` requires `delete()` to have been called. `WHERE` is optional.
 
@@ -269,7 +304,7 @@ new FormatScalar().execute(42);                  // '42'
 | `toSql()` | Build the final SQL string (`SELECT`, `INSERT`, `UPDATE`, or `DELETE`). |
 | `build()` | Alias for `toSql()`. |
 
-Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`) cannot be mixed on the same builder instance. WHERE methods are shared by `SELECT`, `UPDATE`, and `DELETE`.
+Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`) cannot be mixed on the same builder instance. WHERE methods, including `whereGroup` and `orWhereGroup`, are shared by `SELECT`, `UPDATE`, and `DELETE`.
 
 ### Types
 
@@ -311,7 +346,7 @@ Check the subclass before the base class.
 
 | Error | When |
 |-------|------|
-| `AthenaQueryBuilderValidateError` | Invalid input: bad identifiers, missing required calls, mixed statement kinds, non-finite numbers, a sort direction other than `'asc'` or `'desc'`, `null` in comparisons or `BETWEEN`, or a non-string `LIKE` pattern. |
+| `AthenaQueryBuilderValidateError` | Invalid input: bad identifiers, missing required calls, mixed statement kinds, non-finite numbers, a sort direction other than `'asc'` or `'desc'`, `null` in comparisons or `BETWEEN`, a non-string `LIKE` pattern, an empty WHERE group, a WHERE group callback that does not return the builder, or a WHERE group callback that calls a non-WHERE method. |
 | `AthenaQueryBuilderError` | Abstract base. Every error from this package is an instance of this class. |
 
 ### Out of scope (current phase)

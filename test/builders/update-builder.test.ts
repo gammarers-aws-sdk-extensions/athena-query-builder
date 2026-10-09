@@ -81,7 +81,8 @@ WHERE example_key IN ('ex-1', 'ex-2')`);
 
     expect(sql).toBe(`UPDATE example_table
 SET example_status = 'archived'
-WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
   });
 
   test('should support comparison and negated where predicates', () => {

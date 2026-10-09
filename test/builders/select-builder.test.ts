@@ -88,7 +88,10 @@ WHERE example_key IN ('ex-1', 'ex-2')`);
 
     expect(sql).toBe(`SELECT example_id
 FROM example_table
-WHERE example_status <> 'draft' AND deleted_at IS NOT NULL AND example_count < 10 AND example_count > 0 AND example_score <= 100 AND example_score >= 1 AND example_count BETWEEN 1 AND 9 AND example_name LIKE 'O''Brien%' AND example_key NOT IN ('ex-1', NULL)`);
+WHERE example_status <> 'draft' AND deleted_at IS NOT NULL AND example_count < 10 \
+AND example_count > 0 AND example_score <= 100 AND example_score >= 1 \
+AND example_count BETWEEN 1 AND 9 AND example_name LIKE 'O''Brien%' \
+AND example_key NOT IN ('ex-1', NULL)`);
   });
 
   test('should yield 1=1 for empty whereNotIn array', () => {
@@ -333,7 +336,8 @@ FROM example_table`);
 
     expect(sql).toBe(`SELECT example_id
 FROM example_table
-WHERE (example_status = 'open' AND example_created_at >= '2024-01-01' AND example_created_at < '2024-02-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01' AND example_created_at < '2024-02-01') \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
   });
 
   test('should nest an OR group inside an AND group', () => {
@@ -355,7 +359,8 @@ WHERE (example_status = 'open' AND example_created_at >= '2024-01-01' AND exampl
 
     expect(sql).toBe(`SELECT example_id
 FROM example_table
-WHERE example_tenant_id = 't1' AND (example_status = 'open' AND example_updated_at >= '2024-01-01' OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01'))`);
+WHERE example_tenant_id = 't1' AND (example_status = 'open' AND example_updated_at >= '2024-01-01' \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01'))`);
   });
 
   test('should leave top-level AND and OR in SQL precedence order', () => {

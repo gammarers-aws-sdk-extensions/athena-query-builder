@@ -85,7 +85,8 @@ WHERE 1=0`);
       .toSql();
 
     expect(sql).toBe(`DELETE FROM example_table
-WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01') \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
   });
 
   test('should combine whereEq and whereIn', () => {

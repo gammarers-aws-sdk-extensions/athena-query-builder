@@ -88,7 +88,10 @@ WHERE example_key IN ('ex-1', 'ex-2')`);
 
     expect(sql).toBe(`SELECT example_id
 FROM example_table
-WHERE example_status <> 'draft' AND deleted_at IS NOT NULL AND example_count < 10 AND example_count > 0 AND example_score <= 100 AND example_score >= 1 AND example_count BETWEEN 1 AND 9 AND example_name LIKE 'O''Brien%' AND example_key NOT IN ('ex-1', NULL)`);
+WHERE example_status <> 'draft' AND deleted_at IS NOT NULL AND example_count < 10 \
+AND example_count > 0 AND example_score <= 100 AND example_score >= 1 \
+AND example_count BETWEEN 1 AND 9 AND example_name LIKE 'O''Brien%' \
+AND example_key NOT IN ('ex-1', NULL)`);
   });
 
   test('should yield 1=1 for empty whereNotIn array', () => {
@@ -311,6 +314,177 @@ FROM example_table`);
     );
     expect(() => selectBuilder.set({ example_value: 'hello' })).toThrow(
       'not available for select',
+    );
+  });
+
+  test('should OR parenthesized status and period groups', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .whereGroup((query) =>
+        query
+          .whereEq('example_status', 'open')
+          .whereGte('example_created_at', '2024-01-01')
+          .whereLt('example_created_at', '2024-02-01'),
+      )
+      .orWhereGroup((query) =>
+        query
+          .whereEq('example_status', 'closed')
+          .whereBetween('example_closed_at', '2024-01-01', '2024-02-01'),
+      )
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE (example_status = 'open' AND example_created_at >= '2024-01-01' AND example_created_at < '2024-02-01') \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01')`);
+  });
+
+  test('should nest an OR group inside an AND group', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .whereEq('example_tenant_id', 't1')
+      .whereGroup((query) =>
+        query
+          .whereEq('example_status', 'open')
+          .whereGte('example_updated_at', '2024-01-01')
+          .orWhereGroup((inner) =>
+            inner
+              .whereEq('example_status', 'closed')
+              .whereBetween('example_closed_at', '2024-01-01', '2024-02-01'),
+          ),
+      )
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE example_tenant_id = 't1' AND (example_status = 'open' AND example_updated_at >= '2024-01-01' \
+OR (example_status = 'closed' AND example_closed_at BETWEEN '2024-01-01' AND '2024-02-01'))`);
+  });
+
+  test('should leave top-level AND and OR in SQL precedence order', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .whereEq('example_tenant_id', 't1')
+      .orWhereGroup((query) => query.whereEq('example_status', 'open'))
+      .whereEq('example_active', true)
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE example_tenant_id = 't1' OR (example_status = 'open') AND example_active = TRUE`);
+  });
+
+  test('should omit a leading OR when orWhereGroup is the first WHERE entry', () => {
+    const sql = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table')
+      .orWhereGroup((query) => query.whereEq('example_status', 'open'))
+      .toSql();
+
+    expect(sql).toBe(`SELECT example_id
+FROM example_table
+WHERE (example_status = 'open')`);
+  });
+
+  test('should keep the base builder free of group clauses', () => {
+    const base = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+    const grouped = base.whereGroup((query) => query.whereEq('example_status', 'open'));
+
+    expect(base.toSql()).toBe(`SELECT example_id
+FROM example_table`);
+    expect(grouped.toSql()).toBe(`SELECT example_id
+FROM example_table
+WHERE (example_status = 'open')`);
+  });
+
+  test('should reject an empty WHERE group', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => builder.whereGroup((query) => query)).toThrow(
+      'whereGroup() requires at least one condition',
+    );
+    expect(() => builder.orWhereGroup((query) => query)).toThrow(
+      'orWhereGroup() requires at least one condition',
+    );
+  });
+
+  test('should reject a WHERE group that ignores the chained builder', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() =>
+      builder.whereGroup((query) => {
+        query.whereEq('example_status', 'open');
+        return query;
+      }),
+    ).toThrow('whereGroup() requires at least one condition');
+  });
+
+  test('should reject a WHERE group callback that does not return the builder', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => {
+      // @ts-expect-error -- exercise the runtime guard when the callback returns nothing
+      builder.whereGroup(() => undefined);
+    }).toThrow('whereGroup() callback must return an AthenaQueryBuilder');
+  });
+
+  test('should reject a WHERE group callback that calls from', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => builder.whereGroup((query) => query.from('example_table'))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
+    );
+  });
+
+  test('should reject a WHERE group callback that starts an INSERT', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => builder.orWhereGroup((query) => query.into('example_table'))).toThrow(
+      'orWhereGroup() callback must only call WHERE methods',
+    );
+  });
+
+  test('should reject a WHERE group callback that calls select, orderBy, or limit', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => builder.whereGroup((query) => query.select(['example_id']))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
+    );
+    expect(() => builder.whereGroup((query) => query.orderBy('example_id', 'asc'))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
+    );
+    expect(() => builder.whereGroup((query) => query.limit(1))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
+    );
+  });
+
+  test('should reject a WHERE group callback that starts UPDATE or DELETE', () => {
+    const builder = new AthenaQueryBuilder()
+      .select(['example_id'])
+      .from('example_table');
+
+    expect(() => builder.whereGroup((query) => query.update('example_table'))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
+    );
+    expect(() => builder.whereGroup((query) => query.delete('example_table'))).toThrow(
+      'whereGroup() callback must only call WHERE methods',
     );
   });
 

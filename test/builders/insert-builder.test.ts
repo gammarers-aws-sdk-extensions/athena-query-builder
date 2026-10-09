@@ -115,6 +115,19 @@ VALUES ('ex-b')`);
     ).toThrow('Invalid SQL identifier');
   });
 
+  test('should reject WHERE groups on INSERT', () => {
+    const insertBuilder = new AthenaQueryBuilder()
+      .into('example_table')
+      .values({ example_id: 'ex-1' });
+
+    expect(() =>
+      insertBuilder.whereGroup((query) => query.whereEq('example_id', 'ex-1')),
+    ).toThrow('not available for insert');
+    expect(() =>
+      insertBuilder.orWhereGroup((query) => query.whereEq('example_id', 'ex-1')),
+    ).toThrow('not available for insert');
+  });
+
   test('should reject mixing INSERT with SELECT methods', () => {
     const insertBuilder = new AthenaQueryBuilder()
       .into('example_table')

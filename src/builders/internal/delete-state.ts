@@ -1,5 +1,6 @@
 import { pushWhere } from './push-where';
 import { requiredCall } from './required-call';
+import type { WhereClause } from './where-clause';
 import { AthenaQueryBuilderValidateError } from '../../core/errors';
 
 /**
@@ -7,7 +8,7 @@ import { AthenaQueryBuilderValidateError } from '../../core/errors';
  */
 export interface DeleteBuilderState {
   readonly table?: string;
-  readonly whereClauses: readonly string[];
+  readonly whereClauses: readonly WhereClause[];
 }
 
 /** Default empty `DELETE` builder state. */

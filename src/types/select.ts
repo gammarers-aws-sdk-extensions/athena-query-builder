@@ -164,15 +164,15 @@ export type SelectColumn =
   | string
   | {
     /** Source column identifier. */
-    column: string;
+    readonly column: string;
     /** Optional alias for the SELECT list (`column AS alias`). */
-    as?: string;
+    readonly as?: string;
   }
   | {
     /** Expression rendered in the SELECT list. */
-    expr: SelectExpr;
+    readonly expr: SelectExpr;
     /** Optional alias (`expr AS alias`). */
-    as?: string;
+    readonly as?: string;
   };
 
 /**

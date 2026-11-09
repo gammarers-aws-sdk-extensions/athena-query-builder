@@ -1,6 +1,6 @@
 import { AthenaQueryBuilderValidateError } from './errors';
 import type { QuoteString } from './quote-string';
-import type { SqlTypedLiteral } from '../types';
+import type { SqlTypedLiteral } from './scalar';
 
 /** `YYYY-MM-DD`, captured so the calendar date can be checked. */
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -17,6 +17,9 @@ const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?
 
 /** Decimal text. An exponent would be a different literal, so it is rejected. */
 const DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;
+
+/** Optional `±HH:MM` zone after a timestamp. `UTC` is checked separately. */
+const ZONE_OFFSET_PATTERN = /^[+-](\d{2}):(\d{2})$/;
 
 /** Largest hour, minute, or second component accepted in a time literal. */
 const MAX_HOUR = 23;
@@ -140,7 +143,7 @@ const isValidZone = (zone: string | undefined): boolean => {
   if (zone === undefined || zone === 'UTC') {
     return true;
   }
-  const match = /^[+-](\d{2}):(\d{2})$/.exec(zone);
+  const match = ZONE_OFFSET_PATTERN.exec(zone);
   if (match === null) {
     return false;
   }

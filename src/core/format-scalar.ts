@@ -1,7 +1,7 @@
 import { AthenaQueryBuilderValidateError } from './errors';
 import { formatTypedLiteral } from './format-typed-literal';
 import { QuoteString } from './quote-string';
-import type { WhereScalar } from '../types';
+import type { WhereScalar } from './scalar';
 
 /** SQL literal for a null scalar. */
 const SQL_NULL = 'NULL';
@@ -36,11 +36,11 @@ export class FormatScalar {
   /**
    * Converts a scalar to its SQL representation.
    *
- * - `null` → `NULL`
- * - `boolean` → `TRUE` / `FALSE`
- * - `number` → decimal literal
- * - `string` → single-quoted literal via {@link QuoteString}
- * - typed literal → `DATE` / `TIME` / `TIMESTAMP` / `DECIMAL` literal
+   * - `null` → `NULL`
+   * - `boolean` → `TRUE` / `FALSE`
+   * - `number` → decimal literal
+   * - `string` → single-quoted literal via {@link QuoteString}
+   * - typed literal → `DATE` / `TIME` / `TIMESTAMP` / `DECIMAL` literal
    *
    * @param value - Scalar to format.
    * @returns SQL literal text.

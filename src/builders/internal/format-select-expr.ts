@@ -64,7 +64,15 @@ const formatSelectExpr = (expr: SelectExpr): string => {
   if (expr.kind === 'cast') {
     return `CAST(${formatSelectArg(expr.column)} AS ${formatCastType(expr.type)})`;
   }
-  return formatCase(expr.when, expr.else);
+  if (expr.kind === 'case') {
+    return formatCase(expr.when, expr.else);
+  }
+
+  // Reachable only when a non-TypeScript caller supplies an unknown kind.
+  const unexpected: { readonly kind: unknown } = expr;
+  throw new AthenaQueryBuilderValidateError(
+    `Invalid SELECT expression kind: ${String(unexpected.kind)}`,
+  );
 };
 
 const formatCount = (column: string | undefined): string => {

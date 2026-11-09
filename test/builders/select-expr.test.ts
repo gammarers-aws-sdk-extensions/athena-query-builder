@@ -4,6 +4,7 @@ import {
   type CaseCompareOp,
   type CastType,
   type DateTruncUnit,
+  type SelectExpr,
 } from '../../src';
 
 describe('AthenaQueryBuilder SELECT expressions', () => {
@@ -132,6 +133,10 @@ WHERE created_on = '2024-01-15' AND created_at >= TIMESTAMP '2024-01-15 00:00:00
     expect(() => base.select([{ expr: { kind: 'lower', column: 'bad-name' } }]).toSql()).toThrow(
       'Invalid SQL identifier',
     );
+    // Stand-in for a JavaScript caller that supplies a kind outside the union.
+    expect(() => base.select([{
+      expr: { kind: 'window' } as unknown as SelectExpr,
+    }]).toSql()).toThrow('Invalid SELECT expression kind');
   });
 
   test('should reject an invalid DATE literal when the predicate is built', () => {

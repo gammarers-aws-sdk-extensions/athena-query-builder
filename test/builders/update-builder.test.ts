@@ -35,6 +35,16 @@ SET example_name = 'O''Brien'
 WHERE example_label = 'it''s'`);
   });
 
+  test('should render a DATE literal in SET', () => {
+    const sql = new AthenaQueryBuilder()
+      .update('example_table')
+      .set({ example_on: { kind: 'date', value: '2024-01-15' } })
+      .toSql();
+
+    expect(sql).toBe(`UPDATE example_table
+SET example_on = DATE '2024-01-15'`);
+  });
+
   test('should support number, boolean, and null scalars in SET', () => {
     const sql = new AthenaQueryBuilder()
       .update('example_table')

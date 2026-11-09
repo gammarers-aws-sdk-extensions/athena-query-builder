@@ -1,4 +1,4 @@
-import { assertIdentifier } from './instances';
+import { formatSelectColumn } from './format-select-expr';
 import { orderDirectionSql } from './order-direction';
 import { pushWhere } from './push-where';
 import { requiredCall } from './required-call';
@@ -28,29 +28,11 @@ export const EMPTY_SELECT_STATE: SelectBuilderState = {
 };
 
 /**
- * Renders one SELECT list entry (identifier or `column AS alias`).
- *
- * @param col - Column identifier or aliased column descriptor.
- * @returns SQL fragment for the SELECT list.
- * @throws {AthenaQueryBuilderValidateError} When a column or alias name is not a valid identifier.
- */
-const formatSelectColumn = (col: SelectColumn): string => {
-  if (typeof col === 'string') {
-    return assertIdentifier.execute(col);
-  }
-  const expr = assertIdentifier.execute(col.column);
-  if (col.as !== undefined) {
-    return `${expr} AS ${assertIdentifier.execute(col.as)}`;
-  }
-  return expr;
-};
-
-/**
  * Builds a `SELECT` statement from {@link state}.
  *
  * @param state - SELECT builder state.
  * @returns Complete SELECT statement.
- * @throws {AthenaQueryBuilderValidateError} When `select()` or `from()` has not been called.
+ * @throws {AthenaQueryBuilderValidateError} When `select()` or `from()` has not been called, or a SELECT entry is invalid.
  */
 export const renderSelectSql = (state: SelectBuilderState): string => {
   const parts: string[] = [];

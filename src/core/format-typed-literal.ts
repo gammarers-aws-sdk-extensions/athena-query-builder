@@ -9,11 +9,12 @@ const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_PATTERN = /^(\d{2}):(\d{2}):(\d{2})(\.\d{1,9})?$/;
 
 /**
- * Timestamp text: date, space, time, then an optional `UTC` or numeric offset.
+ * Timestamp text: date, space, time, then an optional zone token.
  *
+ * The zone is validated separately so `UTC` and `±HH:MM` stay allow-listed.
  * The `T` separator is rejected. Athena's typed literal uses a space.
  */
-const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?)(?: (UTC|[+-]\d{2}:\d{2}))?$/;
+const TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?)(?: (\S+))?$/;
 
 /** Decimal text. An exponent would be a different literal, so it is rejected. */
 const DECIMAL_PATTERN = /^-?\d+(\.\d+)?$/;

@@ -49,6 +49,25 @@ FROM example_table`);
 FROM example_table`);
   });
 
+  test('should render searched CASE without ELSE', () => {
+    const sql = new AthenaQueryBuilder()
+      .select([
+        {
+          expr: {
+            kind: 'case',
+            when: [
+              { column: 'status', op: '=', value: 'open', then: 'active' },
+            ],
+          },
+        },
+      ])
+      .from('example_table')
+      .toSql();
+
+    expect(sql).toBe(`SELECT CASE WHEN status = 'open' THEN 'active' END
+FROM example_table`);
+  });
+
   test('should render searched CASE with null checks and a column result', () => {
     const sql = new AthenaQueryBuilder()
       .select([
@@ -118,6 +137,27 @@ WHERE created_on = '2024-01-15' AND created_at >= TIMESTAMP '2024-01-15 00:00:00
         type: { name: 'decimal', precision: 39, scale: 0 },
       },
     }]).toSql()).toThrow('Invalid DECIMAL precision');
+    expect(() => base.select([{
+      expr: {
+        kind: 'cast',
+        column: 'example_amount',
+        type: { name: 'integer', precision: 10, scale: 2 } as unknown as CastType,
+      },
+    }]).toSql()).toThrow('Invalid CAST type');
+    expect(() => base.select([{
+      expr: {
+        kind: 'cast',
+        column: 'example_amount',
+        type: { name: 'decimal', precision: 1.5, scale: 0 },
+      },
+    }]).toSql()).toThrow('Invalid DECIMAL precision');
+    expect(() => base.select([{
+      expr: {
+        kind: 'cast',
+        column: 'example_amount',
+        type: { name: 'decimal', precision: 10, scale: -1 },
+      },
+    }]).toSql()).toThrow('Invalid DECIMAL scale');
     expect(() => base.select([{
       expr: {
         kind: 'case',

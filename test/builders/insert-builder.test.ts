@@ -21,6 +21,16 @@ VALUES ('ex-1')`);
 VALUES ('O''Brien')`);
   });
 
+  test('should render a DATE literal instead of a quoted string', () => {
+    const sql = new AthenaQueryBuilder()
+      .into('example_table')
+      .values({ example_on: { kind: 'date', value: '2024-01-15' } })
+      .toSql();
+
+    expect(sql).toBe(`INSERT INTO example_table (example_on)
+VALUES (DATE '2024-01-15')`);
+  });
+
   test('should support number, boolean, and null scalars', () => {
     const sql = new AthenaQueryBuilder()
       .into('example_table')

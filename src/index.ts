@@ -15,10 +15,20 @@ export {
 } from './core/errors';
 export { AssertIdentifier, FormatScalar, QuoteString } from './utils';
 export type {
+  CaseCompareOp,
+  CaseThen,
+  CaseWhen,
+  CastDecimalType,
+  CastSimpleType,
+  CastType,
+  DateTruncUnit,
   InsertRow,
   OrderByEntry,
   OrderDirection,
   SelectColumn,
+  SelectExpr,
+  SelectExprArg,
+  SqlTypedLiteral,
   UpdateAssignments,
   WhereScalar,
 } from './types';

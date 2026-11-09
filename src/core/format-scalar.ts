@@ -1,4 +1,5 @@
 import { AthenaQueryBuilderValidateError } from './errors';
+import { formatTypedLiteral } from './format-typed-literal';
 import { QuoteString } from './quote-string';
 import type { WhereScalar } from '../types';
 
@@ -35,14 +36,15 @@ export class FormatScalar {
   /**
    * Converts a scalar to its SQL representation.
    *
-   * - `null` → `NULL`
-   * - `boolean` → `TRUE` / `FALSE`
-   * - `number` → decimal literal
-   * - `string` → single-quoted literal via {@link QuoteString}
+ * - `null` → `NULL`
+ * - `boolean` → `TRUE` / `FALSE`
+ * - `number` → decimal literal
+ * - `string` → single-quoted literal via {@link QuoteString}
+ * - typed literal → `DATE` / `TIME` / `TIMESTAMP` / `DECIMAL` literal
    *
    * @param value - Scalar to format.
    * @returns SQL literal text.
-   * @throws {AthenaQueryBuilderValidateError} When {@link value} is a non-finite number.
+   * @throws {AthenaQueryBuilderValidateError} When {@link value} is a non-finite number or an invalid typed literal.
    */
   public execute(value: WhereScalar): string {
     if (value === null) {
@@ -53,6 +55,10 @@ export class FormatScalar {
     }
     if (typeof value === 'number') {
       return formatFiniteNumber(value);
+    }
+    // A plain string stays VARCHAR. Typed objects keep DATE / TIME / TIMESTAMP / DECIMAL.
+    if (typeof value === 'object') {
+      return formatTypedLiteral(value, this.quoteString);
     }
     return this.quoteString.execute(value);
   }

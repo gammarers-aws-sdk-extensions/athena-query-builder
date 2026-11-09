@@ -5,10 +5,13 @@
  */
 import { assertIdentifier, formatScalar } from './instances';
 import { AthenaQueryBuilderValidateError } from '../../core/errors';
-import type { WhereScalar } from '../../types';
+import type { CaseCompareOp, WhereScalar } from '../../types';
 
 /** Operators that have no SQL rewrite when the compared value is null. */
-type InequalityOp = '<' | '>' | '<=' | '>=';
+type InequalityOp = Exclude<CaseCompareOp, '=' | '<>'>;
+
+const isCompareOp = (op: string): op is CaseCompareOp =>
+  op === '=' || op === '<>' || op === '<' || op === '>' || op === '<=' || op === '>=';
 
 /** Builder methods that render {@link InequalityOp}. */
 type CompareMethod = 'whereLt' | 'whereGt' | 'whereLte' | 'whereGte';
@@ -30,13 +33,8 @@ const NULL_COMPARE_HINT =
  * @returns SQL predicate fragment.
  * @throws {AthenaQueryBuilderValidateError} When {@link column} is not a valid identifier.
  */
-export const formatWhereEq = (column: string, value: WhereScalar): string => {
-  const col = assertIdentifier.execute(column);
-  if (value === null) {
-    return `${col} IS NULL`;
-  }
-  return `${col} = ${formatScalar.execute(value)}`;
-};
+export const formatWhereEq = (column: string, value: WhereScalar): string =>
+  formatColumnCompare(column, '=', value, `whereEq() ${NULL_COMPARE_HINT}`);
 
 /**
  * Renders `column <> value` or `column IS NOT NULL`.
@@ -48,13 +46,8 @@ export const formatWhereEq = (column: string, value: WhereScalar): string => {
  * @returns SQL predicate fragment.
  * @throws {AthenaQueryBuilderValidateError} When {@link column} is not a valid identifier.
  */
-export const formatWhereNe = (column: string, value: WhereScalar): string => {
-  const col = assertIdentifier.execute(column);
-  if (value === null) {
-    return `${col} IS NOT NULL`;
-  }
-  return `${col} <> ${formatScalar.execute(value)}`;
-};
+export const formatWhereNe = (column: string, value: WhereScalar): string =>
+  formatColumnCompare(column, '<>', value, `whereNe() ${NULL_COMPARE_HINT}`);
 
 /**
  * Renders `column < value`, `>`, `<=`, or `>=`.
@@ -72,14 +65,50 @@ export const formatWhereCompare = (
   op: InequalityOp,
   value: WhereScalar,
   method: CompareMethod,
+): string => formatColumnCompare(column, op, value, `${method}() ${NULL_COMPARE_HINT}`);
+
+/**
+ * Renders `column <op> value`.
+ *
+ * `=` / `<>` with null become `IS NULL` / `IS NOT NULL`. Other operators reject
+ * null because `column < NULL` is never true in SQL.
+ *
+ * @param column - Column name.
+ * @param op - Comparison operator.
+ * @param value - Scalar on the right-hand side.
+ * @param nullMessage - Error used when {@link op} has no null rewrite.
+ * @returns SQL predicate fragment.
+ * @throws {AthenaQueryBuilderValidateError} When {@link column} is not a valid
+ *   identifier, {@link op} is not a comparison operator, or null is used with an inequality.
+ */
+export const formatColumnCompare = (
+  column: string,
+  op: CaseCompareOp,
+  value: WhereScalar,
+  nullMessage: string,
 ): string => {
   const col = assertIdentifier.execute(column);
-
-  // `column < NULL` is never true in SQL. Callers use whereEq / whereNe for null.
-  if (value === null) {
-    throw new AthenaQueryBuilderValidateError(`${method}() ${NULL_COMPARE_HINT}`);
+  if (!isCompareOp(op)) {
+    throw new AthenaQueryBuilderValidateError(`Invalid comparison operator: ${op}`);
   }
-  return `${col} ${op} ${formatScalar.execute(value)}`;
+  if (value !== null) {
+    return `${col} ${op} ${formatScalar.execute(value)}`;
+  }
+  return formatNullCompare(col, op, nullMessage);
+};
+
+const formatNullCompare = (
+  columnSql: string,
+  op: CaseCompareOp,
+  nullMessage: string,
+): string => {
+  if (op === '=') {
+    return `${columnSql} IS NULL`;
+  }
+  if (op === '<>') {
+    return `${columnSql} IS NOT NULL`;
+  }
+  throw new AthenaQueryBuilderValidateError(nullMessage);
 };
 
 /**

@@ -12,6 +12,8 @@ Fluent, immutable SQL builder for **AWS Athena** (Presto/Trino-style SQL). Build
 - **Fluent chain API** — Knex/Lucid-style method chaining; each call returns a new immutable instance
 - **Unified builder** — One `AthenaQueryBuilder` class for `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
 - **Single-table `SELECT`** — `select`, `from`, `whereEq`, `whereNe`, `whereLt`, `whereGt`, `whereLte`, `whereGte`, `whereBetween`, `whereLike`, `whereIn`, `whereNotIn`, `whereGroup`, `orWhereGroup`, `orderBy`, `limit`
+- **SELECT expressions** — `COUNT`, `SUM`, `LOWER`, `DATE_TRUNC`, `CAST`, and searched `CASE`, each with an optional `AS` alias
+- **Typed literals** — `DATE`, `TIME`, `TIMESTAMP`, and `DECIMAL` values for `WHERE`, `INSERT`, `UPDATE`, and `CASE`
 - **WHERE groups** — `whereGroup` and `orWhereGroup` parenthesize conditions and join those groups with `AND` or `OR`
 - **Single-table `INSERT`** — `into`, `values` (single or multiple rows)
 - **Single-table `UPDATE`** — `update`, `set`, and the same `WHERE` methods as `SELECT`
@@ -73,6 +75,51 @@ FROM example_table
 WHERE example_key IN ('ex-1', 'ex-2') AND example_status = 'active'
 ORDER BY example_id ASC
 LIMIT 1000
+```
+
+### SELECT expressions and typed literals
+
+`COUNT(*)` omits `column`. `SUM`, `LOWER`, `DATE_TRUNC`, and `CAST` accept a column name or a nested expression. A plain string is still a `VARCHAR` literal. Pass a typed literal when the column is `DATE`, `TIME`, `TIMESTAMP`, or `DECIMAL`.
+
+```typescript
+import { AthenaQueryBuilder } from 'athena-query-builder';
+
+const sql = new AthenaQueryBuilder()
+  .select([
+    { expr: { kind: 'count' }, as: 'row_count' },
+    {
+      expr: {
+        kind: 'cast',
+        column: { kind: 'dateTrunc', unit: 'day', column: 'created_at' },
+        type: 'date',
+      },
+      as: 'created_day',
+    },
+    {
+      expr: {
+        kind: 'case',
+        when: [
+          { column: 'status', op: '=', value: 'open', then: 'active' },
+        ],
+        else: 'other',
+      },
+      as: 'label',
+    },
+  ])
+  .from('example_table')
+  .whereGte('created_at', { kind: 'timestamp', value: '2024-01-15 00:00:00' })
+  .whereEq('amount', { kind: 'decimal', value: '12.50' })
+  .toSql();
+
+console.log(sql);
+```
+
+Example output:
+
+```sql
+SELECT COUNT(*) AS row_count, CAST(DATE_TRUNC('day', created_at) AS date) AS created_day, CASE WHEN status = 'open' THEN 'active' ELSE 'other' END AS label
+FROM example_table
+WHERE created_at >= TIMESTAMP '2024-01-15 00:00:00' AND amount = DECIMAL '12.50'
 ```
 
 ### INSERT
@@ -236,6 +283,7 @@ import { QuoteString, AssertIdentifier, FormatScalar } from 'athena-query-builde
 new QuoteString().execute("it's");              // "'it''s'"
 new AssertIdentifier().execute('example_table'); // 'example_table'
 new FormatScalar().execute(42);                  // '42'
+new FormatScalar().execute({ kind: 'date', value: '2024-01-15' }); // "DATE '2024-01-15'"
 ```
 
 ## Options
@@ -246,7 +294,7 @@ new FormatScalar().execute(42);                  // '42'
 
 | Method | Description |
 |--------|-------------|
-| `select(columns)` | `SELECT` list. Each entry is a column name or `{ column, as? }`. |
+| `select(columns)` | `SELECT` list. Each entry is a column name, `{ column, as? }`, or `{ expr, as? }` (`SelectExpr`). |
 | `from(table)` | Single table name (validated identifier). |
 | `whereEq(column, value)` | `column = literal` or `column IS NULL` when `value` is `null`. |
 | `whereNe(column, value)` | `column <> literal` or `column IS NOT NULL` when `value` is `null`. |
@@ -310,15 +358,45 @@ Methods for different statement kinds (`SELECT` / `INSERT` / `UPDATE` / `DELETE`
 
 #### `WhereScalar`
 
-`string` \| `number` \| `boolean` \| `null`
+`string` \| `number` \| `boolean` \| `null` \| `SqlTypedLiteral`
 
-Used in `WHERE`, `INSERT`, `UPDATE` / `SET`, `DELETE`, and `VALUES` clauses. Non-finite numbers (`NaN`, `Infinity`) are rejected by `FormatScalar`.
+Used in `WHERE`, `INSERT`, `UPDATE` / `SET`, `DELETE`, `VALUES`, and `CASE` results. Non-finite numbers (`NaN`, `Infinity`) are rejected by `FormatScalar`. A plain string stays a quoted `VARCHAR` literal.
+
+#### `SqlTypedLiteral`
+
+`{ kind: 'date' \| 'time' \| 'timestamp' \| 'decimal'; value: string }`
+
+| `kind` | `value` | SQL |
+|--------|---------|-----|
+| `date` | `YYYY-MM-DD` | `DATE '2024-01-15'` |
+| `time` | `HH:MM:SS` with an optional fraction of up to 9 digits | `TIME '12:00:00.123'` |
+| `timestamp` | `YYYY-MM-DD HH:MM:SS` with an optional fraction, then an optional `UTC` or `±HH:MM` | `TIMESTAMP '2024-01-15 00:00:00 UTC'` |
+| `decimal` | optional sign, digits, and an optional fraction (no exponent) | `DECIMAL '12.50'` |
+
+Invalid text is rejected. `2024-02-30`, `24:00:00`, a `T` between the date and time, and `1e2` are invalid.
 
 #### `SelectColumn`
 
-`string` \| `{ column: string; as?: string }`
+`string` \| `{ column: string; as?: string }` \| `{ expr: SelectExpr; as?: string }`
 
-A bare column name, or an object with an optional `AS` alias.
+A bare column name, an aliased column, or an expression with an optional `AS` alias.
+
+#### `SelectExpr`
+
+| `kind` | Shape | SQL |
+|--------|-------|-----|
+| `count` | `{ column?: string }` | `COUNT(*)` when `column` is omitted, otherwise `COUNT(column)` |
+| `sum` | `{ column: string \| SelectExpr }` | `SUM(...)` |
+| `lower` | `{ column: string \| SelectExpr }` | `LOWER(...)` |
+| `dateTrunc` | `{ unit: DateTruncUnit; column: string \| SelectExpr }` | `DATE_TRUNC('day', ...)` |
+| `cast` | `{ column: string \| SelectExpr; type: CastType }` | `CAST(... AS varchar)` or `CAST(... AS decimal(10, 2))` |
+| `case` | `{ when: CaseWhen[]; else?: CaseThen }` | searched `CASE WHEN ... THEN ... ELSE ... END` |
+
+`DateTruncUnit` is `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, or `year`.
+
+`CastType` is `boolean`, `tinyint`, `smallint`, `integer`, `bigint`, `real`, `double`, `varchar`, `date`, `time`, `timestamp`, or `{ name: 'decimal'; precision: number; scale: number }`. Precision is 1–38. Scale is 0 through the precision.
+
+`CaseWhen` is `{ column, op, value, then }`. `op` is `=`, `<>`, `<`, `>`, `<=`, or `>=`. `null` with `=` / `<>` becomes `IS NULL` / `IS NOT NULL`. Other operators reject `null`. `then` and `else` are a `WhereScalar` or `{ column: string }`. An empty `when` list is rejected.
 
 #### `OrderDirection`
 
@@ -346,12 +424,12 @@ Check the subclass before the base class.
 
 | Error | When |
 |-------|------|
-| `AthenaQueryBuilderValidateError` | Invalid input: bad identifiers, missing required calls, mixed statement kinds, non-finite numbers, a sort direction other than `'asc'` or `'desc'`, `null` in comparisons or `BETWEEN`, a non-string `LIKE` pattern, an empty WHERE group, a WHERE group callback that does not return the builder, or a WHERE group callback that calls a non-WHERE method. |
+| `AthenaQueryBuilderValidateError` | Invalid input: bad identifiers, missing required calls, mixed statement kinds, non-finite numbers, a sort direction other than `'asc'` or `'desc'`, `null` in comparisons or `BETWEEN`, a non-string `LIKE` pattern, an empty WHERE group, a WHERE group callback that does not return the builder, a WHERE group callback that calls a non-WHERE method, an invalid `DATE` / `TIME` / `TIMESTAMP` / `DECIMAL` literal, an unknown `DATE_TRUNC` unit, an invalid `CAST` type, an empty `CASE`, or a `CASE` inequality compared with `null`. |
 | `AthenaQueryBuilderError` | Abstract base. Every error from this package is an instance of this class. |
 
 ### Out of scope (current phase)
 
-- `JOIN`, `WITH`, subquery `FROM`, `GROUP BY`, `HAVING`, window functions
+- `JOIN`, `WITH`, subquery `FROM`, `GROUP BY`, `HAVING`, window functions, `COUNT(DISTINCT ...)`
 - `StartQueryExecution`, result polling, Glue catalog APIs
 - Environment variable reads or query-plan optimization
 

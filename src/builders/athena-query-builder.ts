@@ -192,7 +192,10 @@ export class AthenaQueryBuilder {
   /**
    * Sets the SELECT column list.
    *
-   * @param columns - Column identifiers or `{ column, as? }` entries.
+   * Each entry is a column name, `{ column, as? }`, or `{ expr, as? }`.
+   * `expr` covers `count`, `sum`, `lower`, `dateTrunc`, `cast`, and searched `case`.
+   *
+   * @param columns - Column identifiers, aliased columns, or {@link SelectColumn} expressions.
    * @returns A new builder instance.
    * @throws {AthenaQueryBuilderValidateError} When the builder is configured for `INSERT`, `UPDATE`, or
    *   `DELETE`.
